@@ -16,11 +16,13 @@ go build -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-service" ./cmd/poseavpn-servic
 echo "[3/5] Building poseavpn-tray menu bar app..."
 go build -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-tray" ./cmd/poseavpn-tray
 
+export CGO_LDFLAGS="-framework UniformTypeIdentifiers"
+
 echo "[4/5] Building poseavpn-single desktop app..."
-go build -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-single" ./cmd/poseavpn-single
+go build -tags production -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-single" ./cmd/poseavpn-single
 
 echo "[5/5] Building poseavpn-multi desktop app..."
-go build -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-multi" ./cmd/poseavpn-multi
+go build -tags production -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-multi" ./cmd/poseavpn-multi
 
 chmod +x "${BIN_DIR}/poseavpn" "${BIN_DIR}/poseavpn-service" "${BIN_DIR}/poseavpn-tray" "${BIN_DIR}/poseavpn-single" "${BIN_DIR}/poseavpn-multi"
 

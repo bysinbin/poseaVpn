@@ -80,6 +80,10 @@ echo -n "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 chmod +x "${APP_DIR}/Contents/MacOS/PoseaVPN"
 chmod +x "${APP_DIR}/Contents/Helpers/"*
 
+# Remove quarantine flags and sign ad-hoc for Gatekeeper
+xattr -cr "${APP_DIR}" 2>/dev/null || true
+codesign --force --deep --sign - "${APP_DIR}" 2>/dev/null || true
+
 # 4. Create DMG (Disk Image with Drag-to-Applications)
 echo "[4/4] DMG disk görüntüsü oluşturuluyor (${DMG_OUTPUT})..."
 rm -rf "${DMG_STAGING}" "${DMG_OUTPUT}"
