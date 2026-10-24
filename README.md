@@ -72,41 +72,37 @@ poseavpn/
 
 ---
 
-## 🍏 macOS Kurulum ve Kullanım
+## 🍏 macOS Kurulum ve Kullanım (DMG & .app)
 
-### 1. macOS İkililerini Derleme
-Tüm CLI, servis, tepsi ve masaüstü arayüzlerini derlemek için:
+### 1. DMG İmajı ve .app Paketini Üretme
+Tüm bileşenleri derleyip `PoseaVPN.app` ve `PoseaVPN-1.1.0.dmg` dosyasını oluşturmak için:
 ```bash
-./build_mac.sh
+./build_dmg.sh
 ```
+Çıktı `dist/PoseaVPN-1.1.0.dmg` ve `dist/PoseaVPN.app` olarak üretilir.
 
-### 2. Arka Plan Servisini Başlatma (Yalnızca bir kez - root/sudo ile)
+### 2. Kurulum ve İlk Çalıştırma (Sürükle & Bırak)
+1. `PoseaVPN-1.1.0.dmg` dosyasını çift tıklayarak açın.
+2. Açılan pencerede **`PoseaVPN.app`** simgesini **`Applications` (Uygulamalar)** klasörüne sürükleyip bırakın.
+3. Uygulamayı ilk kez açtığınızda ekrana otomatik bir kurulum uyarısı gelir:
+   > **🛡️ PoseaVPN Servis Kurulumu**  
+   > *PoseaVPN'in güvenli VPN tünelleri açabilmesi ve sonrasında her bağlantıda şifre sormadan çalışabilmesi için sistem servisini kurması gerekir.*
+4. **"Servisi Kur ve Başlat"** butonuna basıp tek seferlik Touch ID veya parolanızla onay verin.
+5. Arka plan LaunchDaemon servisi kurulur, menü çubuğu simgesi başlar ve tüm tüneller tek tıkla kullanıma hazır hale gelir!
+
+### 3. Komut Satırı (CLI) ve Terminal Kullanımı
+Kurulum tamamlandığında `poseavpn` komutu terminalinizde doğrudan kullanılabilir:
 ```bash
-sudo ./install_service_mac.sh
-```
-*(Veya doğrudan: `sudo bin/poseavpn-service --install`)*
-
-Servis `/Library/LaunchDaemons/com.poseavpn.service.plist` olarak kaydedilir, otomatik başlatılır ve makine her açıldığında hazır bekler.
-
-### 3. İstemciyi Çalıştırma (Admin / Sudo Şifresi Gerekmez!)
-
-#### A) Masaüstü Uygulamaları ve Menü Çubuğu (Önerilen):
-- **Menü Çubuğu İkonu (`bin/poseavpn-tray`):** Ekranın üstündeki menü çubuğuna yerleşir. Sol tık arayüzü açar, sağ tık menüsünden tünelleri tek tıkla bağlanıp kesebilirsiniz. İlk açılışta oturum açılışına (LaunchAgent) kendini ekler.
-- **Tekli Arayüz (`bin/poseavpn-single`):** Sade, odaklanmış tek tünel arayüzü.
-- **Çoklu Arayüz (`bin/poseavpn-multi`):** Profil kitaplığı, içe aktarma ve aynı anda birden fazla tünel yönetimi.
-
-#### B) Komut Satırı (CLI) ile:
-```bash
-# Tüneli başlatma
-bin/poseavpn connect ~/vpn/ayar.conf
+# Tüneli başlatma (Şifre istemez!)
+poseavpn connect ~/vpn/ayar.conf
 # veya OpenVPN için
-bin/poseavpn connect ~/vpn/sirket.ovpn
+poseavpn connect ~/vpn/sirket.ovpn
 
 # Aktif tünellerin durumunu görme
-bin/poseavpn status
+poseavpn status
 
 # Tüneli sonlandırma
-bin/poseavpn disconnect [tünel_adı]
+poseavpn disconnect [tünel_adı]
 ```
 
 ---

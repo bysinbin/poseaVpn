@@ -105,8 +105,42 @@
     }
   }
 
+  let initialInstallPromptShown = false;
+  async function checkInitialInstall() {
+    if (initialInstallPromptShown) return;
+    if (state && state.service === 'notinstalled') {
+      initialInstallPromptShown = true;
+      const ok = await modal({
+        title: '🛡️ PoseaVPN Servis Kurulumu',
+        body: `
+          <div style="line-height:1.6;font-size:13.5px;color:var(--text)">
+            <p style="margin-bottom:12px">
+              PoseaVPN'in güvenli VPN tünelleri açabilmesi, DNS yapılandırmasını yönetebilmesi ve
+              sonrasında <b>yönetici şifresi sormadan</b> çalışabilmesi için sistem servisini kurması gerekir.
+            </p>
+            <div style="background:rgba(109,124,255,0.08);border:1px solid rgba(109,124,255,0.25);border-radius:8px;padding:10px 14px;color:var(--muted);font-size:12px;margin-bottom:6px">
+              ℹ️ Kurulum için tek seferlik yönetici (Touch ID / parola) onayı istenecektir.
+            </div>
+          </div>
+        `,
+        actions: [
+          { label: 'Şimdilik Geç', value: false },
+          { label: 'Servisi Kur ve Başlat', cls: 'primary', value: true }
+        ]
+      });
+      if (ok) {
+        const res = await guard(() => api().ServiceInstall(), 'Yönetici onayı bekleniyor…');
+        if (res !== undefined) {
+          toast('PoseaVPN servisi başarıyla kuruldu ve başlatıldı!', 'ok');
+          setTimeout(refresh, 1500);
+        }
+      }
+    }
+  }
+
   async function refresh() {
     state = await api().GetState();
+    checkInitialInstall();
     render();
   }
 

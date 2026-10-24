@@ -39,6 +39,10 @@ func ensureTray() {
 		filepath.Join(dir, "poseavpn-tray"),
 		filepath.Join(dir, "bin", "poseavpn-tray"),
 		filepath.Join(dir, "..", "MacOS", "poseavpn-tray"),
+		filepath.Join(dir, "..", "Helpers", "poseavpn-tray"),
+		filepath.Join(dir, "Helpers", "poseavpn-tray"),
+		"/Applications/PoseaVPN.app/Contents/Helpers/poseavpn-tray",
+		"/Applications/PoseaVPN.app/Contents/MacOS/poseavpn-tray",
 		filepath.Join(dir, "PoseaVPN Tray.app", "Contents", "MacOS", "poseavpn-tray"),
 	}
 	for _, c := range candidates {

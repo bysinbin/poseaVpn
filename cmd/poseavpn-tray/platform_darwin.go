@@ -45,6 +45,7 @@ func waitForTaskbar(timeout time.Duration) bool {
 func closeGUIs() {
 	_ = exec.Command("pkill", "-f", "poseavpn-single").Run()
 	_ = exec.Command("pkill", "-f", "poseavpn-multi").Run()
+	_ = exec.Command("pkill", "-f", "PoseaVPN").Run()
 	logf("closed desktop apps on exit")
 }
 
@@ -56,7 +57,11 @@ func findAppBinary(name string) string {
 			filepath.Join(dir, name),
 			filepath.Join(dir, "bin", name),
 			filepath.Join(dir, "..", "MacOS", name),
+			filepath.Join(dir, "..", "Helpers", name),
+			filepath.Join(dir, "Helpers", name),
 			filepath.Join(dir, name+".app", "Contents", "MacOS", name),
+			filepath.Join("/Applications/PoseaVPN.app/Contents/MacOS", name),
+			filepath.Join("/Applications/PoseaVPN.app/Contents/Helpers", name),
 		}
 		for _, c := range candidates {
 			if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
@@ -77,6 +82,12 @@ func launch(exeName string) {
 }
 
 func launchMulti() {
+	// Check if PoseaVPN (main app bundle) is present
+	p := findAppBinary("PoseaVPN")
+	if _, err := os.Stat(p); err == nil {
+		_ = exec.Command(p).Start()
+		return
+	}
 	launch("poseavpn-multi")
 }
 

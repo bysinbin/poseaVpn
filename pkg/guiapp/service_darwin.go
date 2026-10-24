@@ -56,6 +56,10 @@ func serviceExe() string {
 		filepath.Join(dir, "poseavpn-service"),
 		filepath.Join(dir, "bin", "poseavpn-service"),
 		filepath.Join(dir, "..", "MacOS", "poseavpn-service"),
+		filepath.Join(dir, "..", "Helpers", "poseavpn-service"),
+		filepath.Join(dir, "Helpers", "poseavpn-service"),
+		"/Applications/PoseaVPN.app/Contents/Helpers/poseavpn-service",
+		"/Applications/PoseaVPN.app/Contents/MacOS/poseavpn-service",
 		"/usr/local/bin/poseavpn-service",
 	} {
 		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
@@ -87,7 +91,21 @@ func (a *App) ServiceInstall() error {
 		absExe = exe
 	}
 
-	script := fmt.Sprintf(`mkdir -p /var/log && cat <<'EOF' > %s
+	cliLink := ""
+	cliCandidates := []string{
+		filepath.Join(filepath.Dir(absExe), "poseavpn"),
+		filepath.Join(filepath.Dir(absExe), "..", "Helpers", "poseavpn"),
+		"/Applications/PoseaVPN.app/Contents/Helpers/poseavpn",
+	}
+	for _, cand := range cliCandidates {
+		if fi, err := os.Stat(cand); err == nil && !fi.IsDir() {
+			absCand, _ := filepath.Abs(cand)
+			cliLink = fmt.Sprintf("mkdir -p /usr/local/bin && ln -sf '%s' /usr/local/bin/poseavpn && ln -sf '%s' /usr/local/bin/poseavpn-service ; ", absCand, absExe)
+			break
+		}
+	}
+
+	script := fmt.Sprintf(`%smkdir -p /var/log && cat <<'EOF' > %s
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -109,9 +127,14 @@ func (a *App) ServiceInstall() error {
 </dict>
 </plist>
 EOF
-chmod 644 %s && chown root:wheel %s && launchctl load -w %s`, launchDaemonPlist, launchDaemonLabel, absExe, launchDaemonPlist, launchDaemonPlist, launchDaemonPlist)
+chmod 644 %s && chown root:wheel %s && launchctl load -w %s`, cliLink, launchDaemonPlist, launchDaemonLabel, absExe, launchDaemonPlist, launchDaemonPlist, launchDaemonPlist)
 
-	return runElevated(script)
+	if err := runElevated(script); err != nil {
+		return err
+	}
+
+	go ensureTray()
+	return nil
 }
 
 // ServiceStart starts the launchd daemon (shows administrator prompt).

@@ -5,7 +5,9 @@ scratch/
 *.tmp
 *.old
 *.msi
+*.dmg
 *.wixpdb
+dist/
 bin/*.exe
 !bin/openvpn/openvpn.exe
 bin/poseavpn
