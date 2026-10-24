@@ -2,12 +2,17 @@
 
 package main
 
-import "time"
+import (
+	"time"
+
+	"fyne.io/systray"
+)
 
 const autostartMenuTitle = "Başlangıçta çalıştır"
 
 func singleInstanceLock() (func(), bool, error) { return func() {}, false, nil }
 func waitForTaskbar(timeout time.Duration) bool   { return true }
+func setupTrayClickBehavior()                     { systray.SetOnTapped(openWindow) }
 func closeGUIs()                                 {}
 func launchMulti()                               { launch("poseavpn-multi") }
 func launchSingle()                              { launch("poseavpn-single") }

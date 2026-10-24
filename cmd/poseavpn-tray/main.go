@@ -108,7 +108,7 @@ func onReady() {
 	systray.SetIcon(iconOff)
 	systray.SetTitle("PoseaVPN")
 	systray.SetTooltip("PoseaVPN")
-	systray.SetOnTapped(openWindow)
+	setupTrayClickBehavior()
 
 	headerItem = systray.AddMenuItem("PoseaVPN", "")
 	headerItem.Disable()

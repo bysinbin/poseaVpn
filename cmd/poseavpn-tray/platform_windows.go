@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"fyne.io/systray"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -45,6 +46,12 @@ func waitForTaskbar(timeout time.Duration) bool {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func setupTrayClickBehavior() {
+	// On Windows, left-click on the notification area icon opens the main window.
+	// Right-click opens the context menu.
+	systray.SetOnTapped(openWindow)
 }
 
 func closeGUIs() {

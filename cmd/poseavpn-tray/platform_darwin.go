@@ -42,6 +42,12 @@ func waitForTaskbar(timeout time.Duration) bool {
 	return true
 }
 
+func setupTrayClickBehavior() {
+	// On macOS, clicking the menu bar status item (sol tık / left click)
+	// natively opens the menu dropdown, matching standard macOS menu bar behavior.
+	// We deliberately leave tappedLeft unset so systray_left_click triggers show_menu.
+}
+
 func closeGUIs() {
 	_ = exec.Command("pkill", "-f", "poseavpn-single").Run()
 	_ = exec.Command("pkill", "-f", "poseavpn-multi").Run()
