@@ -142,8 +142,12 @@ func (a *App) ServiceStart() error {
 	return runElevated(fmt.Sprintf("launchctl load -w %s || launchctl start %s", launchDaemonPlist, launchDaemonLabel))
 }
 
-// ServiceRestart restarts the launchd daemon (shows administrator prompt).
+// ServiceRestart restarts the launchd daemon (shows administrator prompt if IPC fails).
 func (a *App) ServiceRestart() error {
+	c := ipc.NewClient()
+	if resp, err := c.SendRequest(ipc.Request{Action: "restart"}); err == nil && resp.Success {
+		return nil
+	}
 	return runElevated(fmt.Sprintf("launchctl kickstart -k system/%s || (launchctl unload %s && launchctl load -w %s)", launchDaemonLabel, launchDaemonPlist, launchDaemonPlist))
 }
 

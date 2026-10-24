@@ -263,6 +263,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 		_ = encoder.Encode(resp)
 
+	case "restart", "exit":
+		_ = encoder.Encode(Response{Success: true, Message: "service restarting"})
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			s.Stop()
+			os.Exit(0)
+		}()
+
 	case "log":
 		name := strings.TrimSpace(req.Name)
 		logData := ""

@@ -43,6 +43,10 @@ func ConfigureDNS(interfaceAlias string, servers []net.IP, suffixes []string) er
 		scutilScript.WriteString(fmt.Sprintf("d.add SupplementalMatchDomains * %s\n", strings.Join(cleanSuffixes, " ")))
 		scutilScript.WriteString(fmt.Sprintf("d.add SearchDomains * %s\n", strings.Join(cleanSuffixes, " ")))
 		scutilScript.WriteString("d.add SupplementalMatchOrders * 100000\n")
+	} else if len(serverStrs) > 0 {
+		// Catch-all DNS route for full-tunnel / general VPN DNS
+		scutilScript.WriteString("d.add SupplementalMatchDomains * \"\"\n")
+		scutilScript.WriteString("d.add SupplementalMatchOrders * 100\n")
 	}
 	scutilScript.WriteString(fmt.Sprintf("set %s\n", serviceKey))
 

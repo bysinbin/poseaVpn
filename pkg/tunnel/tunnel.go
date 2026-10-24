@@ -31,6 +31,8 @@ type Tunnel struct {
 	freeLoop       []func()
 	releaseVirt    []func()
 	reach          []netip.Prefix // what this tunnel really claims in the OS
+	endpointRoutes []string       // explicit host routes for WireGuard peer endpoints
+	addedRoutes    []string       // routes added for this interface
 	mu             sync.Mutex
 	running        bool
 }
@@ -98,7 +100,7 @@ func StartWithOptions(adapterName string, cfg *config.Config, opts Options) (*Tu
 
 	// 4. Create wireguard device. With address mapping, a translating layer sits
 	// between TUN and WireGuard.
-	logger := device.NewLogger(device.LogLevelSilent, fmt.Sprintf("[%s] ", adapterName))
+	logger := device.NewLogger(device.LogLevelVerbose, fmt.Sprintf("[%s] ", adapterName))
 	bind := conn.NewDefaultBind()
 	var wgTun tun.Device = tunDev
 	if len(t.Mappings) > 0 {
