@@ -76,10 +76,12 @@ func FindOpenVPNBinary() (string, error) {
 }
 
 func prepareOpenVPN(name, openvpnExe, confPath, authFile string, mgmtPort int) (*exec.Cmd, func(), error) {
-	// macOS kernel provides utun natively; no driver installation needed
+	// macOS kernel provides utun natively; no driver installation needed.
+	// OpenVPN requires --dev-type tun when device name starts with "utun" instead of "tun".
 	args := []string{
 		"--config", confPath,
 		"--dev", "utun",
+		"--dev-type", "tun",
 		"--management", "127.0.0.1", strconv.Itoa(mgmtPort),
 		"--verb", "3",
 		"--suppress-timestamps",
