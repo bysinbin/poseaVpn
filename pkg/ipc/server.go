@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Microsoft/go-winio"
-
 	"poseavpn/pkg/config"
 	"poseavpn/pkg/ovpn"
 	"poseavpn/pkg/tunnel"
@@ -23,26 +21,22 @@ import (
 // Server handles IPC requests from non-admin desktop clients.
 type Server struct {
 	listener net.Listener
+	cleanup  func()
 	tunnels  map[string]tunnel.Instance // keyed by lower-case tunnel name
 	mu       sync.Mutex
 	stopCh   chan struct{}
 }
 
-// NewServer initializes the IPC server with AD Domain User accessible DACL.
+// NewServer initializes the IPC server accessible by standard users.
 func NewServer() (*Server, error) {
-	cfg := &winio.PipeConfig{
-		SecurityDescriptor: PipeSDDL,
-		InputBufferSize:    65536,
-		OutputBufferSize:   65536,
-	}
-
-	l, err := winio.ListenPipe(PipePath, cfg)
+	l, cleanup, err := listenIPC()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create named pipe listener at %s: %w", PipePath, err)
+		return nil, err
 	}
 
 	return &Server{
 		listener: l,
+		cleanup:  cleanup,
 		tunnels:  make(map[string]tunnel.Instance),
 		stopCh:   make(chan struct{}),
 	}, nil
@@ -50,7 +44,7 @@ func NewServer() (*Server, error) {
 
 // Start begins accepting IPC requests from clients.
 func (s *Server) Start() {
-	log.Printf("[IPC Server] Listening for client requests on %s (Domain Users allowed)", PipePath)
+	log.Printf("[IPC Server] Listening for client requests on %s", ipcEndpointDesc())
 
 	for {
 		conn, err := s.listener.Accept()
@@ -73,6 +67,9 @@ func (s *Server) Stop() {
 	close(s.stopCh)
 	if s.listener != nil {
 		_ = s.listener.Close()
+	}
+	if s.cleanup != nil {
+		s.cleanup()
 	}
 
 	s.mu.Lock()

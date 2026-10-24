@@ -1,30 +1,30 @@
-# 🛡️ PoseaVPN
+# 🛡️ PoseaVPN (v1.1)
 
-Active Directory (AD) etki alanına dahil edilmiş (domain-joined) Windows bilgisayarlar için özel olarak geliştirilmiş, **WireGuard ve OpenVPN** protokollerini aynı anda destekleyen kurumsal VPN istemcisi.
+Active Directory (AD) ve kurumsal ağlar için özel olarak geliştirilmiş, **Windows ve macOS** üzerinde **WireGuard ve OpenVPN** protokollerini aynı anda destekleyen modern, hafif ve çoklu tünel uyumlu kurumsal VPN istemcisi.
 
 ---
 
-## 🎯 Active Directory Ortamındaki Sorunlar ve Çözümleri
+## 🎯 Kurumsal Ortamlardaki Sorunlar ve Çözümleri
 
-Standart VPN istemcileri AD ortamında şu hataları verir:
-1. **"WireGuard / OpenVPN may only be used by users who are a member of the Builtin Administrators group"**  
-   Standart etki alanı kullanıcılarının (Domain Users) yerel admin yetkisi yoktur. Named Pipe erişimi engellenir ve tünel açılamaz.
-2. **Genel Ağ (Public Network) & Windows Güvenlik Duvarı Engeli**  
-   Windows sanal adaptörü (Wintun) varsayılan olarak "Public" yapar. Windows Güvenlik Duvarı Kerberos, LDAP, SMB ve RPC trafiğini anında keser; etki alanı bağlantısı kopar.
+Standart VPN istemcileri kurumsal etki alanı veya kısıtlı kullanıcı ortamlarında şu sorunları yaşatır:
+1. **Yönetici Yetkisi Gereksinimi (Non-Admin / Domain Users)**  
+   Standart etki alanı kullanıcılarının (Domain Users) yerel admin yetkisi yoktur. Windows'ta Named Pipe, macOS'te sistem ağ ayarları erişimi engellenir ve tünel açılamaz.
+2. **Genel Ağ (Public Network) & Güvenlik Duvarı Engeli**  
+   Windows sanal adaptörü varsayılan olarak "Public" yapar ve Kerberos, LDAP, SMB trafiğini keser; etki alanı bağlantısı kopar.
 3. **AD DNS & NetBIOS / Suffix Kaybı**  
    Split-tunneling yapılmadığında veya DNS suffix'leri iletilmediğinde `\\dosyasunucusu\paylasim` ve intranet kaynakları çözülemez.
 4. **Farklı VPN Protokolleri (WireGuard & OpenVPN İhtiyacı)**  
    Kurumsal altyapılarda hem `.conf` (WireGuard) hem de `.ovpn` (OpenVPN auth-user-pass) sunucuları bulunur; kullanıcıların birden çok farklı istemci kurması gerekir.
 
-### 💡 PoseaVPN Nasıl Çözer?
+### 💡 PoseaVPN v1.1 ile Neler Çözüldü?
 - **Çift Protokol Desteği (WireGuard & OpenVPN):** Hem modern WireGuard `.conf` hem de OpenVPN `.ovpn` profillerini aynı kitaplıkta yönetebilir ve aynı anda çalıştırabilirsiniz.
-- **Dahili Bağımsız OpenVPN 2.6 Motoru:** Sisteme harici hiçbir program kurmaya gerek kalmadan, projeye gömülü (bundled) portable OpenVPN Community binary'si ve Wintun sürücüsü kullanılır.
+- **Platformlar Arası Tam Destek (Windows & macOS):**
+  - **Windows:** Wintun sürücüsü, Windows Service mimarisi, Named Pipe DACL, NRPT split-DNS ve Network Profile (Private) otomasyonu.
+  - **macOS:** Yerel `utun` çekirdek sürücüsü (harici kext gerektirmez), `launchd` LaunchDaemon mimarisi, `scutil` / `/etc/resolver/` split-DNS, menü çubuğu (menu bar) tepsisi ve Unix Domain Socket (`/var/run/poseavpn.sock`).
 - **Kimlik Bilgisi (auth-user-pass) Yönetimi:** OpenVPN kullanıcı adı ve şifreleri tek seferde kaydedilebilir; sonrasında tek tıkla bağlantı kurulur.
-- **Arka Plan Servis Mimarisi (LocalSystem):** `poseavpn-service.exe` Windows Servisi olarak `SYSTEM` yetkisinde çalışır.
-- **Domain Users İzinli Named Pipe (`\\.\pipe\poseavpn`):** Özel DACL (`D:(A;;GRGW;;;AU)`) sayesinde yerel admin olmayan standart domain kullanıcıları UAC şifresi girmeden tüneli açıp kapatabilir.
-- **Otomatik Özel Ağ (Private Network):** Tünel açıldığında adaptör kategorisini otomatik olarak `Private` yapar; AD trafiğinin engellenmesini önler.
-- **Windows NRPT Split-DNS Entegrasyonu:** Şirket içi etki alanı suffix'lerini (`*.sirket.local`) doğrudan Domain Controller DNS'ine yönlendirir.
+- **Standart Kullanıcı Yetkisiyle Yönetim:** Arka plan servisi `SYSTEM` (Windows) veya `root` (macOS LaunchDaemon) olarak çalışır; son kullanıcılar şifresiz tünel açıp kapatabilir.
 - **1:1 IP NAT & Adres Eşleme (Conflicting Subnet Mapping):** Çakışan alt ağlara sahip birden fazla VPN tüneli aynı anda açıldığında, paket seviyesinde şeffaf adres eşleme (`198.18.0.0/15`) yaparak her iki ağa da erişim sağlar.
+- **Dahili DNS Vekili:** Çakışan DNS sunucularını interface-bound soketler (`IP_UNICAST_IF` / `IP_BOUND_IF`) üzerinden yönlendirir.
 
 ---
 
@@ -32,130 +32,121 @@ Standart VPN istemcileri AD ortamında şu hataları verir:
 
 ```
 poseavpn/
-├── bin/
-│   ├── openvpn/                  # Bağımsız OpenVPN Community motoru ve DLL'leri
-│   │   ├── openvpn.exe
-│   │   ├── libcrypto-3-x64.dll
-│   │   ├── libssl-3-x64.dll
-│   │   └── wintun.dll
-│   ├── poseavpn-tray.exe         # Sistem tepsisi uygulaması (otomatik başlar)
-│   ├── poseavpn-single.exe       # Tekli arayüz (tek yapılandırma)
-│   ├── poseavpn-multi.exe        # Çoklu arayüz (çoklu profil / eşzamanlı tüneller)
-│   ├── poseavpn.exe              # Kullanıcı CLI istemcisi (Admin yetkisi istemez)
+├── bin/                          # Derlenmiş çalıştırılabilir dosyalar
+│   ├── openvpn/                  # Bağımsız OpenVPN motoru ve DLL'leri (Windows)
+│   ├── poseavpn                  # Kullanıcı CLI istemcisi (macOS / Linux)
+│   ├── poseavpn-service          # Arka Plan Servisi (macOS LaunchDaemon)
+│   ├── poseavpn-tray             # Menü çubuğu uygulaması (macOS NSStatusItem)
+│   ├── poseavpn-single           # Tekli Wails arayüzü (macOS)
+│   ├── poseavpn-multi            # Çoklu Wails arayüzü (macOS)
+│   ├── poseavpn.exe              # Kullanıcı CLI istemcisi (Windows)
 │   ├── poseavpn-service.exe      # Windows Arka Plan Servisi (LocalSystem)
+│   ├── poseavpn-tray.exe         # Windows Sistem Tepsisi uygulaması
+│   ├── poseavpn-single.exe       # Windows Tekli arayüzü
+│   ├── poseavpn-multi.exe        # Windows Çoklu arayüzü
 │   └── wintun.dll               # Resmi imzalı Wintun 64-bit sürücüsü
 ├── cmd/
-│   ├── poseavpn-tray/            # Sistem tepsisi kaynak kodları
+│   ├── poseavpn-tray/            # Sistem tepsisi / menü çubuğu kaynak kodları
 │   ├── poseavpn-single/          # Tekli arayüz (Wails)
 │   ├── poseavpn-multi/           # Çoklu arayüz (Wails)
 │   ├── poseavpn/                 # İstemci CLI kaynak kodları
-│   └── poseavpn-service/         # Servis kaynak kodları
+│   └── poseavpn-service/         # Servis / Daemon kaynak kodları
 ├── ui/common/                   # İki arayüzün ortak CSS / JS dosyaları
 ├── pkg/
-│   ├── guiapp/                  # Arayüzlerin ortak arka ucu (WG + OVPN desteği)
+│   ├── guiapp/                  # Arayüzlerin ortak arka ucu (WG + OVPN)
 │   ├── config/                  # Standart WireGuard .conf ayrıştırıcı
 │   ├── ovpn/                    # OpenVPN .ovpn ayrıştırıcı
-│   ├── dns/                     # Windows NRPT & Split-DNS yöneticisi
-│   ├── ipc/                     # AD uyumlu Named Pipe protokolü & DACL
+│   ├── dns/                     # Windows NRPT & macOS scutil Split-DNS yöneticisi
+│   ├── ipc/                     # Windows Named Pipe & macOS Unix Socket protokolü
 │   ├── netprofile/              # Ağ profili (Private) ayarlayıcısı
 │   ├── transport/               # İletim katmanı (UDP & WebSocket Fallback)
-│   └── tunnel/                  # Wintun + WireGuard-Go + OpenVPN Runner
-├── build.ps1                    # PowerShell derleme betiği
-├── install_service.bat          # Servis kurulum betiği (Admin gerektirir)
-└── uninstall_service.bat        # Servis kaldırma betiği
+│   └── tunnel/                  # Wintun / utun + WireGuard-Go + OpenVPN Runner
+├── build_mac.sh                 # macOS ikili derleme betiği
+├── install_service_mac.sh       # macOS LaunchDaemon kurulum betiği (sudo gerektirir)
+├── uninstall_service_mac.sh     # macOS LaunchDaemon kaldırma betiği
+├── build.ps1                    # Windows PowerShell derleme betiği
+├── install_service.bat          # Windows Servis kurulum betiği (Admin gerektirir)
+├── uninstall_service.bat        # Windows Servis kaldırma betiği
+└── installer/                   # WiX v5 tabanlı MSI kurulum paketi oluşturucu
 ```
 
 ---
 
-## 🚀 Kurulum ve Kullanım
+## 🍏 macOS Kurulum ve Kullanım
 
-### 1. Servisi Kurma (Yalnızca bir kez - Yönetici veya GPO ile)
-Yönetici olarak PowerShell veya CMD açın:
+### 1. macOS İkililerini Derleme
+Tüm CLI, servis, tepsi ve masaüstü arayüzlerini derlemek için:
+```bash
+./build_mac.sh
+```
+
+### 2. Arka Plan Servisini Başlatma (Yalnızca bir kez - root/sudo ile)
+```bash
+sudo ./install_service_mac.sh
+```
+*(Veya doğrudan: `sudo bin/poseavpn-service --install`)*
+
+Servis `/Library/LaunchDaemons/com.poseavpn.service.plist` olarak kaydedilir, otomatik başlatılır ve makine her açıldığında hazır bekler.
+
+### 3. İstemciyi Çalıştırma (Admin / Sudo Şifresi Gerekmez!)
+
+#### A) Masaüstü Uygulamaları ve Menü Çubuğu (Önerilen):
+- **Menü Çubuğu İkonu (`bin/poseavpn-tray`):** Ekranın üstündeki menü çubuğuna yerleşir. Sol tık arayüzü açar, sağ tık menüsünden tünelleri tek tıkla bağlanıp kesebilirsiniz. İlk açılışta oturum açılışına (LaunchAgent) kendini ekler.
+- **Tekli Arayüz (`bin/poseavpn-single`):** Sade, odaklanmış tek tünel arayüzü.
+- **Çoklu Arayüz (`bin/poseavpn-multi`):** Profil kitaplığı, içe aktarma ve aynı anda birden fazla tünel yönetimi.
+
+#### B) Komut Satırı (CLI) ile:
+```bash
+# Tüneli başlatma
+bin/poseavpn connect ~/vpn/ayar.conf
+# veya OpenVPN için
+bin/poseavpn connect ~/vpn/sirket.ovpn
+
+# Aktif tünellerin durumunu görme
+bin/poseavpn status
+
+# Tüneli sonlandırma
+bin/poseavpn disconnect [tünel_adı]
+```
+
+---
+
+## 🪟 Windows Kurulum ve Kullanım
+
+### 1. Servisi Kurma (Yönetici ile)
 ```cmd
 install_service.bat
 ```
 *(Veya doğrudan: `bin\poseavpn-service.exe --install`)*
 
-Servis kurulduktan sonra arka planda otomatik başlar ve her Windows açılışında hazır bekler.
+### 2. İstemciyi Çalıştırma
+- **Sistem Tepsisi (`bin\poseavpn-tray.exe`):** Saatin yanında çalışır, başlangıca eklenir.
+- **Tekli (`bin\poseavpn-single.exe`) & Çoklu (`bin\poseavpn-multi.exe`)** masaüstü uygulamaları.
+- **CLI (`bin\poseavpn.exe`):**
+  ```cmd
+  bin\poseavpn.exe connect C:\yol\ayar.conf
+  bin\poseavpn.exe status
+  bin\poseavpn.exe disconnect
+  ```
 
 ---
 
-### 2. İstemciyi Çalıştırma (Admin Şifresi Gerekmez!)
+## 🌐 UDP Engelli Ağlar İçin WebSocket Fallback Ağ Geçidi
 
-#### A) Masaüstü uygulamaları (Önerilen):
-Saatin yanındaki **sistem tepsisi** simgesi (`poseavpn-tray.exe`) ilk çalıştırmada Windows başlangıcına kendini ekler; sonraki oturumlarda kendiliğinden açılır. Arayüzlerden biri açıldığında tepsi çalışmıyorsa otomatik başlatılır.
-- **Sol tık:** arayüzü açar. **Sağ tık menüsü:** her profil için tek tıkla bağlan/kes, "Çoklu arayüzü aç", "Tekli arayüzü aç", "Tümünü kes", "Windows ile başlat".
-- **Tekli (`poseavpn-single.exe`):** tek `.conf` seç, büyük düğmeyle bağlan. Son seçilen dosya hatırlanır.
-- **Çoklu (`poseavpn-multi.exe`):** profil kitaplığı, içe aktarma/yapıştırma ve aynı anda birden fazla tünel.
-- Servis kurulu değilse arayüzde ve tepsi menüsünde "Servisi kur ve başlat" seçeneği çıkar (tek seferlik yönetici onayı).
-
-#### B) Komut Satırı (CLI) ile:
-Kullanıcı masaüstünden kendi standart etki alanı hesabıyla (Domain User) CMD veya PowerShell açar:
-
-```cmd
-# Tüneli başlatma
-bin\poseavpn.exe connect C:\yol\ayar.conf
-
-# Durumu kontrol etme
-bin\poseavpn.exe status
-
-# Tüneli kapatma (ad verilmezse hepsi)
-bin\poseavpn.exe disconnect [ad]
+Kurumsal ağınız UDP paketlerini engelliyorsa:
+```bash
+# Sunucuda:
+poseavpn fallback-server --listen :8443 --target 127.0.0.1:51820
 ```
 
----
-
-### 3. UDP Engelli Ağlar İçin WebSocket Fallback Ağ Geçidi (Opsiyonel)
-Kurumsal ağınız saf UDP paketlerini engelliyorsa, WireGuard sunucunuzun yanında WebSocket Fallback ağ geçidini başlatabilirsiniz:
-
-```cmd
-# Sunucu tarafında (WebSocket 8443 -> WireGuard UDP 51820)
-poseavpn.exe fallback-server --listen :8443 --target 127.0.0.1:51820
-```
-
-İstemci `ayar.conf` dosyasına şu satırları eklemeniz yeterlidir:
+İstemci `.conf` dosyasında `[Interface]` altına ekleyin:
 ```ini
-[Interface]
 Transport = wss
 FallbackURL = wss://vpn.sirket.com:8443/wg
 ```
-İstemci WireGuard trafiğini standart HTTPS (Port 443/8443) WebSocket paketleri halinde kurumsal vekil sunucuların (Proxy) içinden sorunsuz geçirir.
-
 
 ---
 
-### 4. Aynı Adresleri Kullanan Ağlara Aynı Anda Bağlanma (Adres Eşleme)
+## 🔀 Çakışan Alt Ağlar İçin 1:1 IP NAT (Adres Eşleme)
 
-İki farklı siteye aynı anda bağlanırsanız ve ikisinin de iç ağı aynı aralığı kullanıyorsa (örn. ikisinde de `192.168.0.0/22`), Windows bir hedef adresi tek bir yere gönderebilir. Servis bunu otomatik çözer; **önce bağlanan tünel** gerçek adresleri alır, **sonra bağlanan tünel** çakışan ağlar için sanal bir aralık kazanır (`198.18.0.0/15` havuzundan, aynı büyüklükte):
-
-```
-Site-A (önce)  : 192.168.0.0/22  -> gerçek adreslerle erişilir      (192.168.1.1)
-Site-B (sonra) : 192.168.0.0/22  -> 198.18.0.0/22 sanal aralığı     (198.18.1.1)
-```
-
-- Servis, Wintun ile WireGuard arasındaki IPv4 paketlerinde adresi çevirir ve IP/TCP/UDP/ICMP sağlama toplamlarını düzeltir.
-- Çakışma yoksa hiçbir şey değişmez. Bağlantı sırası tersine çevrilirse sanal aralığı diğer tünel alır.
-- Arayüzde (çoklu) ve `poseavpn status` çıktısında eşleme görünür.
-- **DNS vekili:** Çakışan veya eşlenen bir ağdaki DNS sunucusu, tüneli kendi arayüzüne zorlayan küçük bir yerel vekil (`127.77.x.1`) üzerinden kullanılır. Eşlenen ağdaki isimlerin cevapları sanal adrese çevrilir; yani isimle de erişebilirsiniz.
-- Tünelin kendi VPN alt ağı çakışıyorsa (iki sunucuda da `10.0.0.0/24`) adres `/32` olarak eklenir.
-
-**Sınırlar:** Yalnızca IPv4 desteklenir. Paket içinde IP adresi taşıyan protokoller (ör. bazı VoIP/FTP etkin kipleri) eşlenen ağlarda sorun çıkarabilir. `0.0.0.0/0` ve `/16`'dan geniş aralıklar eşlenmez. Aynı `Address` değerini kullanan iki yapılandırma yine birlikte açılmaz.
-
----
-
-### 5. Active Directory (GPO) ve MSI ile Dağıtım
-
-Kurumsal ortamlarda veya Active Directory etki alanlarında istemci makinelerine tek tıkla veya uzaktan sessiz dağıtım için MSI paketi hazırlanmıştır:
-
-```cmd
-# MSI Kurulumu (Sessiz / GPO Dağıtımı):
-msiexec /i PoseaVPN-Setup-x64.msi /qn /norestart
-
-# MSI Kaldırma:
-msiexec /x PoseaVPN-Setup-x64.msi /qn /norestart
-```
-
-* **Yönetici Ayrıcalıkları:** Kurulum makine genelinde (`perMachine`) `C:\Program Files\PoseaVPN\` altına yapılır ve `PoseaVPN` Windows servisini otomatik kurup başlatır.
-* **Son Kullanıcı Hakları:** Son kullanıcılar local admin olmadan `PoseaVPN` arayüzünü Başlat menüsünden açıp tünelleri yönetebilir.
-* **Paket Oluşturma:** `installer\build_msi.ps1` scripti çalıştırılarak güncel ikililer tek bir `.msi` dosyasına paketlenebilir.
-
+İki farklı VPN sunucusu aynı iç IP aralığını kullanıyorsa (örn. her ikisi de `192.168.0.0/22`), PoseaVPN sonra bağlanan tünel için `198.18.0.0/15` havuzundan sanal bir aralık eşler. İki ağa da çakışma olmadan eşzamanlı erişebilirsiniz.

@@ -15,18 +15,14 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/bits"
 	"net"
 	"net/netip"
 	"sync"
 	"syscall"
 	"time"
-
-	"golang.org/x/sys/windows"
 )
 
 const (
-	ipUnicastIf  = 31 // IP_UNICAST_IF (ws2ipdef.h)
 	queryTimeout = 4 * time.Second
 	tcpIdle      = 10 * time.Second
 )
@@ -85,15 +81,7 @@ func (p *Proxy) Close() {
 
 // control forces a socket onto the tunnel adapter and ignores the route table.
 func (p *Proxy) control(network, address string, c syscall.RawConn) error {
-	var serr error
-	err := c.Control(func(fd uintptr) {
-		// For IPv4 the interface index must be passed in network byte order.
-		serr = windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, ipUnicastIf, int(bits.ReverseBytes32(p.IfIndex)))
-	})
-	if err != nil {
-		return err
-	}
-	return serr
+	return bindSocketToInterface(c, p.IfIndex)
 }
 
 func (p *Proxy) dialer(network string) *net.Dialer {

@@ -8,7 +8,7 @@
   "info": {
     "companyName": "Posea",
     "productName": "PoseaVPN",
-    "productVersion": "2.0.0",
+    "productVersion": "1.1.0",
     "comments": "AD uyumlu WireGuard istemcisi (tekli)"
   }
 }

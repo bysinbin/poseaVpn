@@ -7,26 +7,17 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"fyne.io/systray"
-	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 
 	"poseavpn/pkg/guiapp"
 )
 
-const (
-	maxSlots     = 20
-	runKeyPath   = `Software\Microsoft\Windows\CurrentVersion\Run`
-	runValueName = "PoseaVPNTray"
-)
+const maxSlots = 20
 
 // slot is one reusable profile entry in the tray menu.
 type slot struct {
@@ -65,20 +56,18 @@ func main() {
 	logf("starting (pid %d)", os.Getpid())
 
 	// single instance
-	name, _ := windows.UTF16PtrFromString(`Local\PoseaVPNTray`)
-	h, err := windows.CreateMutex(nil, false, name)
-	if err == windows.ERROR_ALREADY_EXISTS {
+	unlock, alreadyRunning, err := singleInstanceLock()
+	if alreadyRunning {
 		logf("another tray instance is already running, exiting")
 		return
 	}
 	if err != nil {
-		logf("mutex error: %v", err)
+		logf("single instance error: %v", err)
 		return
 	}
-	defer windows.CloseHandle(h)
+	defer unlock()
 
-	// When started from the Run key right after login, Explorer's taskbar may not
-	// exist yet and Shell_NotifyIcon(NIM_ADD) would fail. Wait for it first.
+	// Wait for taskbar / UI environment if needed
 	if waitForTaskbar(45 * time.Second) {
 		logf("taskbar is ready")
 	} else {
@@ -87,22 +76,6 @@ func main() {
 
 	systray.Run(onReady, func() { logf("systray exited") })
 	logf("systray.Run returned")
-}
-
-// waitForTaskbar polls for Explorer's Shell_TrayWnd window.
-func waitForTaskbar(timeout time.Duration) bool {
-	findWindow := windows.NewLazySystemDLL("user32.dll").NewProc("FindWindowW")
-	cls, _ := windows.UTF16PtrFromString("Shell_TrayWnd")
-	deadline := time.Now().Add(timeout)
-	for {
-		if hwnd, _, _ := findWindow.Call(uintptr(unsafe.Pointer(cls)), 0); hwnd != 0 {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
 }
 
 // initLog writes a small diagnostic log to %LOCALAPPDATA%\PoseaVPN\tray.log.
@@ -169,7 +142,7 @@ func onReady() {
 	svcItem = systray.AddMenuItem("Servisi başlat", "Arka plan servisini başlat (yönetici onayı gerekir)")
 	svcItem.Hide()
 	systray.AddSeparator()
-	autoItem = systray.AddMenuItemCheckbox("Windows ile başlat", "", autostartEnabled())
+	autoItem = systray.AddMenuItemCheckbox(autostartMenuTitle, "", autostartEnabled())
 	quitItem := systray.AddMenuItem("Çıkış", "Tepsiyi ve açık arayüzleri kapatır (tüneller açık kalır)")
 
 	go func() {
@@ -178,9 +151,9 @@ func onReady() {
 			case <-disconnItem.ClickedCh:
 				go run(func() (string, error) { return app.Disconnect("") })
 			case <-openMultiItem.ClickedCh:
-				launch("poseavpn-multi.exe")
+				launchMulti()
 			case <-openSingleItem.ClickedCh:
-				launch("poseavpn-single.exe")
+				launchSingle()
 			case <-svcItem.ClickedCh:
 				go serviceAction()
 			case <-autoItem.ClickedCh:
@@ -345,7 +318,7 @@ func run(fn func() (string, error)) {
 		if strings.HasPrefix(msg, "AUTH_REQUIRED:") {
 			msg = "Bu OpenVPN profili kullanıcı adı ve şifre gerektiriyor.\nLütfen önce PoseaVPN uygulamasını açıp bağlanarak bilgilerinizi girin/kaydedin."
 		}
-		messageBox("PoseaVPN", msg, windows.MB_OK|windows.MB_ICONERROR)
+		showError("PoseaVPN", msg)
 	}
 }
 
@@ -358,7 +331,7 @@ func serviceAction() {
 		err = app.ServiceStart()
 	}
 	if err != nil {
-		messageBox("PoseaVPN", err.Error(), windows.MB_OK|windows.MB_ICONERROR)
+		showError("PoseaVPN", err.Error())
 		return
 	}
 	// the elevated helper needs a moment
@@ -372,125 +345,12 @@ func serviceAction() {
 	}
 }
 
-// closeGUIs closes the single and multi apps when the tray exits. It first asks
-// politely (WM_CLOSE, so the apps can shut down cleanly) and force-kills whatever
-// is still alive after a short grace period. Tunnels are left running.
-func closeGUIs() {
-	names := []string{"poseavpn-single.exe", "poseavpn-multi.exe"}
-
-	taskkill := func(force bool, name string) {
-		args := []string{"/IM", name}
-		if force {
-			args = append([]string{"/F"}, args...)
-		}
-		cmd := exec.Command("taskkill", args...)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		_ = cmd.Run()
-	}
-
-	for _, n := range names {
-		taskkill(false, n)
-	}
-	time.Sleep(2 * time.Second)
-	for _, n := range names {
-		taskkill(true, n) // no-op when the app already closed
-	}
-	logf("closed desktop apps on exit")
-}
-
-// launch starts one of the desktop apps that sits next to the tray executable.
-// A second launch just brings the already open window forward.
-func launch(exeName string) {
-	self, _ := os.Executable()
-	path := filepath.Join(filepath.Dir(self), exeName)
-	if _, err := os.Stat(path); err != nil {
-		messageBox("PoseaVPN", exeName+" bulunamadı:\n"+filepath.Dir(self), windows.MB_OK|windows.MB_ICONWARNING)
-		return
-	}
-	_ = exec.Command(path).Start()
-}
-
 // openWindow (left click on the icon) starts the multi app when profiles exist,
 // otherwise the single app.
 func openWindow() {
 	if len(app.GetState().Profiles) > 0 {
-		launch("poseavpn-multi.exe")
+		launchMulti()
 		return
 	}
-	launch("poseavpn-single.exe")
-}
-
-func messageBox(title, text string, flags uint32) {
-	t, _ := windows.UTF16PtrFromString(title)
-	m, _ := windows.UTF16PtrFromString(text)
-	_, _ = windows.MessageBox(0, m, t, flags|windows.MB_SETFOREGROUND)
-}
-
-// ---------------------------------------------------------------- autostart
-
-// enableAutostartOnFirstRun registers the tray to start with Windows the very first
-// time it runs, so it no longer has to be opened by hand. A flag in HKCU remembers
-// that this already happened, so a user who later turns "Windows ile başlat" off
-// is not overridden.
-func enableAutostartOnFirstRun() {
-	const flagKey = `Software\PoseaVPN`
-	const flagName = "TrayAutostartInitialized"
-
-	fk, _, err := registry.CreateKey(registry.CURRENT_USER, flagKey, registry.SET_VALUE|registry.QUERY_VALUE)
-	if err != nil {
-		logf("autostart: cannot open flag key: %v", err)
-		return
-	}
-	defer fk.Close()
-	if v, _, err := fk.GetIntegerValue(flagName); err == nil && v == 1 {
-		logf("autostart: already initialised")
-		return
-	}
-
-	if !autostartEnabled() {
-		rk, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE)
-		if err != nil {
-			logf("autostart: cannot open Run key: %v", err)
-			return
-		}
-		exe, _ := os.Executable()
-		if err := rk.SetStringValue(runValueName, `"`+exe+`"`); err != nil {
-			logf("autostart: cannot write Run value: %v", err)
-		} else {
-			logf("autostart: enabled for %s", exe)
-		}
-		rk.Close()
-	}
-	_ = fk.SetDWordValue(flagName, 1)
-}
-
-func autostartEnabled() bool {
-	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.QUERY_VALUE)
-	if err != nil {
-		return false
-	}
-	defer k.Close()
-	_, _, err = k.GetStringValue(runValueName)
-	return err == nil
-}
-
-func toggleAutostart() {
-	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE|registry.QUERY_VALUE)
-	if err != nil {
-		messageBox("PoseaVPN", "Başlangıç ayarı değiştirilemedi: "+err.Error(), windows.MB_OK|windows.MB_ICONERROR)
-		return
-	}
-	defer k.Close()
-
-	if autostartEnabled() {
-		_ = k.DeleteValue(runValueName)
-		autoItem.Uncheck()
-		return
-	}
-	exe, _ := os.Executable()
-	if err := k.SetStringValue(runValueName, `"`+exe+`"`); err != nil {
-		messageBox("PoseaVPN", "Başlangıç ayarı değiştirilemedi: "+err.Error(), windows.MB_OK|windows.MB_ICONERROR)
-		return
-	}
-	autoItem.Check()
+	launchSingle()
 }

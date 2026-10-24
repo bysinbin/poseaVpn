@@ -10,7 +10,13 @@ const PipePath = `\\.\pipe\poseavpn`
 // PipeSDDL allows Authenticated Users (Domain Users), LocalSystem, and Builtin Administrators.
 const PipeSDDL = "D:(A;;GRGW;;;AU)(A;;GA;;;BA)(A;;GA;;;SY)"
 
-// Request sent from a standard non-admin client to the SYSTEM service.
+// SocketPath is the Unix Domain Socket path on macOS/Linux.
+const SocketPath = "/var/run/poseavpn.sock"
+
+// FallbackSocketPath is used when /var/run is not writable (e.g. non-root debugging/testing).
+const FallbackSocketPath = "/tmp/poseavpn.sock"
+
+// Request sent from a standard non-admin client to the SYSTEM/root service.
 //
 // Actions:
 //

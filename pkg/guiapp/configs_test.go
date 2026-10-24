@@ -19,10 +19,12 @@ Endpoint = 203.0.113.1:51820
 AllowedIPs = 10.0.0.0/24
 `
 
-// isolate the per-user data dir (os.UserConfigDir uses %APPDATA% on Windows)
+// isolate the per-user data dir (os.UserConfigDir uses %APPDATA% on Windows, $HOME on macOS/Linux)
 func isolate(t *testing.T) {
 	t.Helper()
-	t.Setenv("APPDATA", t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+	t.Setenv("HOME", dir)
 }
 
 func makeZip(t *testing.T, files map[string]string) string {

@@ -7,22 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
-	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 
 	"poseavpn/pkg/config"
-	"poseavpn/pkg/dns"
 	"poseavpn/pkg/dnsproxy"
-	"poseavpn/pkg/netprofile"
 	"poseavpn/pkg/transport"
 )
 
 // Tunnel represents an active WireGuard tunnel instance.
 type Tunnel struct {
 	Name           string
+	ActualName     string    // OS interface name (e.g. utun3 on Darwin, adapterName on Windows)
 	Config         *config.Config
 	StartedAt      time.Time
 	DNSProxies     []string  // "real DNS → loopback proxy" for DNS servers that overlap another tunnel
@@ -33,7 +30,7 @@ type Tunnel struct {
 	dnsProxies     []*dnsproxy.Proxy
 	freeLoop       []func()
 	releaseVirt    []func()
-	reach          []netip.Prefix // what this tunnel really claims in Windows
+	reach          []netip.Prefix // what this tunnel really claims in the OS
 	mu             sync.Mutex
 	running        bool
 }
@@ -87,19 +84,20 @@ func StartWithOptions(adapterName string, cfg *config.Config, opts Options) (*Tu
 		log.Printf("[PoseaVPN] %s: %s overlaps another tunnel; reach it as %s", adapterName, m.Real, m.Virtual)
 	}
 
-	// 3. Create Wintun TUN device
-	tunDev, err := tun.CreateTUN(adapterName, cfg.Interface.MTU)
+	// 3. Create TUN device
+	tunDev, actualName, err := createTUN(adapterName, cfg.Interface.MTU)
 	if err != nil {
 		t.releaseVirtual()
 		if fallbackClient != nil {
 			fallbackClient.Close()
 		}
-		return nil, fmt.Errorf("failed to create Wintun adapter '%s': %w", adapterName, err)
+		return nil, fmt.Errorf("failed to create network adapter '%s': %w", adapterName, err)
 	}
 	t.tunDev = tunDev
+	t.ActualName = actualName
 
 	// 4. Create wireguard device. With address mapping, a translating layer sits
-	// between Wintun and WireGuard.
+	// between TUN and WireGuard.
 	logger := device.NewLogger(device.LogLevelSilent, fmt.Sprintf("[%s] ", adapterName))
 	bind := conn.NewDefaultBind()
 	var wgTun tun.Device = tunDev
@@ -133,89 +131,11 @@ func StartWithOptions(adapterName string, cfg *config.Config, opts Options) (*Tu
 		return nil, fmt.Errorf("failed to bring device up: %w", err)
 	}
 
-	// 5. Configure Windows IP addresses and Routing via winipcfg
-	nativeTun, ok := tunDev.(*tun.NativeTun)
-	if !ok {
+	// 6. Configure OS IP addresses, routing, and DNS
+	if err := configureOSNetwork(t, opts); err != nil {
 		t.Stop()
-		return nil, fmt.Errorf("expected native tun device")
+		return nil, err
 	}
-
-	luid := winipcfg.LUID(nativeTun.LUID())
-
-	// Set IP addresses. When this tunnel's own subnet overlaps another tunnel, the
-	// address is added as a host address (/32) so Windows does not also create an
-	// on-link route for the whole subnet on this adapter.
-	addrs := make([]netip.Prefix, 0, len(cfg.Interface.Addresses))
-	var reach []netip.Prefix
-	for _, a := range cfg.Interface.Addresses {
-		if a.Addr().Is4() && a.Bits() < 32 && overlapsAny(a.Masked(), opts.OtherReach) {
-			log.Printf("[PoseaVPN] %s: subnet %s overlaps another tunnel; using %s/32 only", adapterName, a.Masked(), a.Addr())
-			a = netip.PrefixFrom(a.Addr(), 32)
-		}
-		addrs = append(addrs, a)
-		reach = append(reach, a.Masked())
-	}
-	if err := luid.SetIPAddresses(addrs); err != nil {
-		t.Stop()
-		return nil, fmt.Errorf("failed to set IP addresses: %w", err)
-	}
-
-	// Configure Routes for AllowedIPs. A remapped network is routed as its virtual
-	// prefix; the real prefix belongs to the tunnel that connected first.
-	// Routes are added one by one (no flush) so a failure on an unrelated address
-	// family cannot silently skip the remaining routes.
-	virtualOfReal := make(map[netip.Prefix]netip.Prefix, len(t.Mappings))
-	for _, m := range t.Mappings {
-		virtualOfReal[m.Real] = m.Virtual
-	}
-	for _, peer := range cfg.Peers {
-		for _, allowed := range peer.AllowedIPs {
-			route := allowed.Masked()
-			if v, ok := virtualOfReal[route]; ok {
-				route = v
-			}
-			nextHop := netip.IPv4Unspecified()
-			if route.Addr().Is6() {
-				nextHop = netip.IPv6Unspecified()
-			}
-			if err := luid.AddRoute(route, nextHop, 0); err != nil && err != windows.ERROR_OBJECT_ALREADY_EXISTS {
-				t.Stop()
-				return nil, fmt.Errorf("failed to add route %s: %w", route, err)
-			}
-			reach = append(reach, route)
-			log.Printf("[PoseaVPN] Route added: %s", route)
-		}
-	}
-	t.reach = reach
-
-	// Lower interface metric so tunnel routes win over overlapping local routes
-	if ipif, err := luid.IPInterface(windows.AF_INET); err == nil {
-		ipif.UseAutomaticMetric = false
-		ipif.Metric = 5
-		ipif.RouterDiscoveryBehavior = winipcfg.RouterDiscoveryDisabled
-		ipif.DadTransmits = 0
-		_ = ipif.Set()
-	}
-
-	// 6. Configure DNS & Active Directory NRPT rules.
-	// A DNS server that overlaps another running tunnel would be reached through
-	// that other tunnel by Windows, and a server inside a remapped network answers
-	// with real addresses. Both go through a per-tunnel proxy that is forced onto
-	// this tunnel's adapter and translates the answers.
-	if len(cfg.Interface.DNS) > 0 || len(cfg.Interface.DNSSearches) > 0 {
-		servers := cfg.Interface.DNS
-		if ipif, err := luid.IPInterface(windows.AF_INET); err == nil {
-			servers = t.setupDNSProxies(servers, ipif.InterfaceIndex, opts.OtherReach, t.Mappings)
-		}
-		_ = dns.ConfigureDNS(adapterName, servers, cfg.Interface.DNSSearches)
-	}
-
-	// 7. Active Directory Fix: Set Network Profile to Private
-	// Wait a tiny moment for Windows Network List Manager to index the new adapter
-	go func() {
-		time.Sleep(1 * time.Second)
-		_ = netprofile.SetInterfaceCategory(adapterName, netprofile.CategoryPrivate)
-	}()
 
 	t.StartedAt = time.Now()
 	t.running = true
@@ -234,8 +154,8 @@ func (t *Tunnel) Stop() error {
 	}
 	t.running = false
 
-	// Clean up AD NRPT rules of this tunnel only
-	_ = dns.CleanUpNRPT(t.Name)
+	// Clean up DNS and OS network rules
+	teardownOSNetwork(t)
 	t.stopDNSProxies()
 	t.releaseVirtual()
 

@@ -4,29 +4,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/Microsoft/go-winio"
 )
 
 // Client communicates with the PoseaVPN background service.
 type Client struct {
-	pipePath string
-	timeout  time.Duration
+	timeout time.Duration
 }
 
 // NewClient creates a new IPC client.
 func NewClient() *Client {
 	return &Client{
-		pipePath: PipePath,
-		timeout:  10 * time.Second,
+		timeout: 10 * time.Second,
 	}
 }
 
 // SendRequest sends a JSON request to the background service and returns the response.
 func (c *Client) SendRequest(req Request) (*Response, error) {
-	conn, err := winio.DialPipe(c.pipePath, &c.timeout)
+	conn, err := dialIPC(c.timeout)
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to PoseaVPN service: %w (is the service installed and running?)", err)
+		return nil, err
 	}
 	defer conn.Close()
 

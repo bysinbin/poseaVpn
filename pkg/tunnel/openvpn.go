@@ -12,25 +12,22 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-
-	"golang.zx2c4.com/wintun"
 
 	"poseavpn/pkg/ovpn"
 )
 
-// OpenVPNTunnel manages an active OpenVPN process and its Wintun adapter.
+// OpenVPNTunnel manages an active OpenVPN process and its network adapter.
 type OpenVPNTunnel struct {
-	name          string
-	startedAt     time.Time
-	cmd           *exec.Cmd
-	mgmtPort      int
-	mgmtConn      net.Conn
-	summary       *ovpn.Summary
-	tempDir       string
-	logPath       string
-	wintunAdapter *wintun.Adapter
+	name           string
+	startedAt      time.Time
+	cmd            *exec.Cmd
+	mgmtPort       int
+	mgmtConn       net.Conn
+	summary        *ovpn.Summary
+	tempDir        string
+	logPath        string
+	cleanupAdapter func()
 
 	mu        sync.Mutex
 	running   bool
@@ -42,46 +39,21 @@ type OpenVPNTunnel struct {
 	stopCh    chan struct{}
 }
 
-// OpenVPNLogPath returns the path to the persistent log file for a tunnel.
-func OpenVPNLogPath(name string) string {
-	baseDir := filepath.Join(os.Getenv("ProgramData"), "PoseaVPN", "logs")
-	if os.Getenv("ProgramData") == "" {
-		baseDir = filepath.Join(os.TempDir(), "poseavpn-logs")
-	}
-	_ = os.MkdirAll(baseDir, 0o755)
-	return filepath.Join(baseDir, cleanAdapterName(name)+".log")
-}
-
-// FindOpenVPNBinary searches for the bundled openvpn.exe.
-func FindOpenVPNBinary() (string, error) {
-	self, err := os.Executable()
-	if err == nil {
-		selfDir := filepath.Dir(self)
-		candidates := []string{
-			filepath.Join(selfDir, "openvpn", "openvpn.exe"),
-			filepath.Join(selfDir, "bin", "openvpn", "openvpn.exe"),
-			filepath.Join(selfDir, "..", "bin", "openvpn", "openvpn.exe"),
-			filepath.Join(selfDir, "..", "openvpn", "openvpn.exe"),
-		}
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				return filepath.Abs(c)
-			}
+func cleanAdapterName(name string) string {
+	s := strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
 		}
 	}
-
-	// Working directory fallback
-	candidates := []string{
-		`bin\openvpn\openvpn.exe`,
-		`openvpn\openvpn.exe`,
+	res := b.String()
+	if len(res) > 20 {
+		res = res[:20]
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return filepath.Abs(c)
-		}
-	}
-
-	return "", fmt.Errorf("bundled openvpn.exe not found in bin/openvpn/")
+	return res
 }
 
 // StartOpenVPN launches an OpenVPN tunnel instance.
@@ -120,37 +92,20 @@ func StartOpenVPN(name, configData, username, password string) (*OpenVPNTunnel, 
 	mgmtPort := mgmtListener.Addr().(*net.TCPAddr).Port
 	_ = mgmtListener.Close()
 
-	adapterName := "PoseaVPN-OVPN-" + cleanAdapterName(name)
-	wAdapter, err := createOrOpenWintunAdapter(adapterName)
-	if err != nil {
-		_ = os.RemoveAll(tempDir)
-		return nil, err
-	}
-
-	args := []string{
-		"--config", confPath,
-		"--windows-driver", "wintun",
-		"--dev-node", adapterName,
-		"--management", "127.0.0.1", strconv.Itoa(mgmtPort),
-		"--verb", "3",
-		"--suppress-timestamps",
-	}
-
+	var authFile string
 	if summary.AuthUserPass && username != "" {
-		authFile := filepath.Join(tempDir, "auth.txt")
+		authFile = filepath.Join(tempDir, "auth.txt")
 		content := username + "\n" + password + "\n"
 		if err := os.WriteFile(authFile, []byte(content), 0o600); err != nil {
 			_ = os.RemoveAll(tempDir)
 			return nil, fmt.Errorf("failed to write auth file: %w", err)
 		}
-		args = append(args, "--auth-user-pass", authFile)
 	}
 
-	cmd := exec.Command(openvpnExe, args...)
-	cmd.Dir = filepath.Dir(openvpnExe) // so it finds wintun.dll and ssl dlls
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	cmd, cleanupAdapter, err := prepareOpenVPN(name, openvpnExe, confPath, authFile, mgmtPort)
+	if err != nil {
+		_ = os.RemoveAll(tempDir)
+		return nil, err
 	}
 
 	// Capture log to persistent path
@@ -165,22 +120,24 @@ func StartOpenVPN(name, configData, username, password string) (*OpenVPNTunnel, 
 		if logFile != nil {
 			logFile.Close()
 		}
-		_ = wAdapter.Close()
+		if cleanupAdapter != nil {
+			cleanupAdapter()
+		}
 		_ = os.RemoveAll(tempDir)
 		return nil, fmt.Errorf("failed to start openvpn process: %w", err)
 	}
 
 	t := &OpenVPNTunnel{
-		name:          name,
-		startedAt:     time.Now(),
-		cmd:           cmd,
-		mgmtPort:      mgmtPort,
-		summary:       summary,
-		tempDir:       tempDir,
-		logPath:       logPath,
-		wintunAdapter: wAdapter,
-		running:       true,
-		stopCh:        make(chan struct{}),
+		name:           name,
+		startedAt:      time.Now(),
+		cmd:            cmd,
+		mgmtPort:       mgmtPort,
+		summary:        summary,
+		tempDir:        tempDir,
+		logPath:        logPath,
+		cleanupAdapter: cleanupAdapter,
+		running:        true,
+		stopCh:         make(chan struct{}),
 	}
 
 	// Wait asynchronously for OpenVPN process exit
@@ -260,39 +217,7 @@ func extractOpenVPNError(logPath string) error {
 	return fmt.Errorf("OpenVPN işlemi kapandı (kullanıcı bilgileri veya sunucu ayarları geçersiz olabilir)")
 }
 
-func createOrOpenWintunAdapter(name string) (*wintun.Adapter, error) {
-	// Clean up stale adapter with this name if one lingers from a crash
-	if existing, err := wintun.OpenAdapter(name); err == nil && existing != nil {
-		_ = existing.Close()
-		time.Sleep(300 * time.Millisecond)
-	}
 
-	adapter, err := wintun.CreateAdapter(name, "Wintun", nil)
-	if err != nil {
-		if existing, oerr := wintun.OpenAdapter(name); oerr == nil && existing != nil {
-			return existing, nil
-		}
-		return nil, fmt.Errorf("failed to create Wintun adapter '%s': %w", name, err)
-	}
-	return adapter, nil
-}
-
-func cleanAdapterName(name string) string {
-	s := strings.TrimSpace(name)
-	var b strings.Builder
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
-			b.WriteRune(r)
-		} else {
-			b.WriteRune('_')
-		}
-	}
-	res := b.String()
-	if len(res) > 20 {
-		res = res[:20]
-	}
-	return res
-}
 
 func (t *OpenVPNTunnel) monitorManagement() {
 	deadline := time.Now().Add(10 * time.Second)
@@ -382,16 +307,7 @@ func (t *OpenVPNTunnel) configurePrivateNetwork() {
 	}
 	t.mu.Unlock()
 
-	if ip != "" {
-		psCmd := fmt.Sprintf(`$a = Get-NetIPAddress -IPAddress "%s" -ErrorAction SilentlyContinue; if ($a) { Set-NetConnectionProfile -InterfaceIndex $a.InterfaceIndex -NetworkCategory Private }`, ip)
-		cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		if out, err := cmd.CombinedOutput(); err != nil {
-			log.Printf("[OpenVPN %s] Set Private by IP %s warning: %v (%s)", t.name, ip, err, strings.TrimSpace(string(out)))
-		} else {
-			log.Printf("[OpenVPN %s] Network profile for IP %s set to Private successfully", t.name, ip)
-		}
-	}
+	configurePrivateNetworkForIP(t.name, ip)
 }
 
 // Log returns the OpenVPN log output.
@@ -526,9 +442,9 @@ func (t *OpenVPNTunnel) Stop() error {
 			_ = os.RemoveAll(t.tempDir)
 		}
 
-		if t.wintunAdapter != nil {
-			_ = t.wintunAdapter.Close()
-			t.wintunAdapter = nil
+		if t.cleanupAdapter != nil {
+			t.cleanupAdapter()
+			t.cleanupAdapter = nil
 		}
 
 		log.Printf("[OpenVPN %s] Tunnel stopped.", t.name)

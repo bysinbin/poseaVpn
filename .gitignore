@@ -8,6 +8,11 @@ scratch/
 *.wixpdb
 bin/*.exe
 !bin/openvpn/openvpn.exe
+bin/poseavpn
+bin/poseavpn-service
+bin/poseavpn-tray
+bin/poseavpn-single
+bin/poseavpn-multi
 build/
 cmd/**/build/
 

@@ -7,6 +7,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -60,6 +61,15 @@ func Run(o RunOptions) error {
 			Theme:                windows.Dark,
 			WebviewIsTransparent: false,
 			DisableWindowIcon:    false,
+		},
+		Mac: &mac.Options{
+			TitleBar:             mac.TitleBarDefault(),
+			Appearance:           mac.NSAppearanceNameDarkAqua,
+			WebviewIsTransparent: false,
+			About: &mac.AboutInfo{
+				Title:   o.Title,
+				Message: "PoseaVPN v1.1.0 - Active Directory & Multi-Tunnel VPN Client",
+			},
 		},
 	})
 }
