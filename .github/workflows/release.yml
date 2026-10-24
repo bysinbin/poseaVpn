@@ -34,6 +34,89 @@ jobs:
       - name: Upload DMG to Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "PoseaVPN ${{ github.ref_name }}"
           files: dist/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    name: Build Windows MSI & Binaries
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install WiX toolset
+        run: dotnet tool install -g wix --version 5.0.2
+
+      - name: Build Windows Binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin
+          go build -ldflags "-s -w" -o bin\poseavpn.exe .\cmd\poseavpn
+          go build -ldflags "-s -w" -o bin\poseavpn-service.exe .\cmd\poseavpn-service
+          go build -ldflags "-s -w -H windowsgui" -o bin\poseavpn-tray.exe .\cmd\poseavpn-tray
+          go build -tags production -ldflags "-s -w -H windowsgui" -o bin\poseavpn-single.exe .\cmd\poseavpn-single
+          go build -tags production -ldflags "-s -w -H windowsgui" -o bin\poseavpn-multi.exe .\cmd\poseavpn-multi
+
+      - name: Build MSI Installer
+        shell: pwsh
+        run: |
+          cd installer
+          wix build Package.wxs -arch x64 -o PoseaVPN-Setup-x64.msi
+          New-Item -ItemType Directory -Force -Path ..\dist
+          Copy-Item PoseaVPN-Setup-x64.msi ..\dist\PoseaVPN-Setup-x64.msi
+
+      - name: Create Windows Portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path bin\* -DestinationPath dist\PoseaVPN-1.1.0-windows-x64.zip
+
+      - name: Upload Windows Assets to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PoseaVPN ${{ github.ref_name }}"
+          files: |
+            dist/PoseaVPN-Setup-x64.msi
+            dist/PoseaVPN-1.1.0-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build Linux Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build Linux Binaries
+        run: |
+          mkdir -p dist/linux
+          go build -ldflags "-s -w" -o dist/linux/poseavpn ./cmd/poseavpn
+          go build -ldflags "-s -w" -o dist/linux/poseavpn-service ./cmd/poseavpn-service
+          tar -czvf dist/PoseaVPN-1.1.0-linux-amd64.tar.gz -C dist/linux .
+
+      - name: Upload Linux Archive to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PoseaVPN ${{ github.ref_name }}"
+          files: dist/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
