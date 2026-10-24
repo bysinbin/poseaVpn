@@ -1,0 +1,14 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "PoseaVPN",
+  "outputfilename": "poseavpn-single",
+  "frontend:dir": "frontend",
+  "assetdir": "frontend",
+  "author": { "name": "Posea" },
+  "info": {
+    "companyName": "Posea",
+    "productName": "PoseaVPN",
+    "productVersion": "2.0.0",
+    "comments": "AD uyumlu WireGuard istemcisi (tekli)"
+  }
+}

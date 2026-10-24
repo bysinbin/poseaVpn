@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <title>PoseaVPN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="logo" id="logo"></div>
+      <div class="brand">PoseaVPN<small>Active Directory uyumlu VPN</small></div>
+      <div class="spacer"></div>
+      <div class="pill" id="svcPill"><span class="dot" id="svcDot"></span><span id="svcText">…</span></div>
+    </header>
+
+    <main class="content">
+      <div id="banner"></div>
+
+      <section class="hero fade">
+        <button class="power" id="power" aria-label="Bağlan / Bağlantıyı kes">
+          <span class="ring"></span>
+          <span class="core" id="powerIcon"></span>
+        </button>
+        <div class="status" id="statusText">Bağlı değil</div>
+        <div class="sub" id="statusSub">Bir yapılandırma seçin</div>
+      </section>
+
+      <section class="card fade cfg" id="cfgCard">
+        <div class="cfg-head">
+          <div class="cfg-ico" id="cfgIco"></div>
+          <div class="cfg-name">
+            <b id="cfgName">Yapılandırma seçilmedi</b>
+            <span class="mono" id="cfgPath" title="">—</span>
+          </div>
+          <button class="btn sm" id="logBtn" title="Bağlantı günlüğünü görüntüle" style="display:none"></button>
+          <button class="btn sm" id="exportBtn" title="Yapılandırmayı dışa aktar" style="display:none"></button>
+          <button class="btn sm" id="chooseBtn"></button>
+        </div>
+        <dl class="kv" id="cfgDetails"></dl>
+      </section>
+
+      <section class="card fade hidden" id="statsCard">
+        <h3>Canlı durum</h3>
+        <div class="stats">
+          <div class="stat"><div class="l">Süre</div><div class="v mono" id="stUptime">—</div></div>
+          <div class="stat"><div class="l">Son el sıkışma</div><div class="v" id="stHs">—</div></div>
+          <div class="stat"><div class="l">İndirilen</div><div class="v" id="stRx">—</div></div>
+          <div class="stat"><div class="l">Gönderilen</div><div class="v" id="stTx">—</div></div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <span id="ver"></span>
+        <button class="link" id="restartBtn" style="color:var(--accent);font-weight:600">Servisi yeniden başlat</button>
+        <button class="link" id="uninstallBtn">Servisi kaldır</button>
+      </footer>
+    </main>
+  </div>
+
+  <script src="/common.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

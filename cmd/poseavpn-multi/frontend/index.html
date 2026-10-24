@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <title>PoseaVPN</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="logo" id="logo"></div>
+      <div class="brand">PoseaVPN<small>Çoklu tünel yöneticisi</small></div>
+      <div class="spacer"></div>
+      <div class="pill" id="activePill"><span class="dot" id="activeDot"></span><span id="activeText">0 aktif tünel</span></div>
+      <button class="btn sm danger" id="disconnectAll">Tümünü kes</button>
+      <div class="pill" id="svcPill"><span class="dot" id="svcDot"></span><span id="svcText">…</span></div>
+    </header>
+
+    <div class="split">
+      <aside class="side">
+        <div class="side-head">
+          <b>Profiller</b><span class="count" id="count">0</span>
+          <div class="spacer"></div>
+          <button class="btn sm" id="pasteBtn" title="Yapılandırma metnini yapıştır"></button>
+          <button class="btn sm" id="exportAllBtn" title="Tüm profilleri zip olarak dışa aktar"></button>
+          <button class="btn sm primary" id="importBtn"></button>
+        </div>
+        <input class="input" id="search" placeholder="Ara…" autocomplete="off" />
+        <div class="list" id="list"></div>
+      </aside>
+
+      <main class="detail" id="detail">
+        <div id="banner"></div>
+        <div id="detailBody"></div>
+        <footer class="foot">
+          <span id="ver"></span>
+          <button class="link" id="restartBtn" style="color:var(--accent);font-weight:600">Servisi yeniden başlat</button>
+          <button class="link" id="uninstallBtn">Servisi kaldır</button>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

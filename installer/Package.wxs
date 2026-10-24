@@ -1,0 +1,114 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="PoseaVPN"
+           Manufacturer="Posea"
+           Version="1.0.0"
+           UpgradeCode="8B3B8B9B-79C0-4660-84E3-559B283E4C7A"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="Daha yeni bir PoseaVPN sürümü zaten yüklü." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="PoseaVPN">
+        <Directory Id="OPENVPNFOLDER" Name="openvpn" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="PoseaVPN" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="CommonAppDataPoseaVPN" Name="PoseaVPN">
+        <Directory Id="CommonAppDataLogs" Name="logs" />
+        <Directory Id="CommonAppDataProfiles" Name="profiles" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents">
+      <!-- Ana Uygulama ve Araçlar -->
+      <Component Id="C_Multi" Directory="INSTALLFOLDER" Guid="6F824687-95EB-4C0A-90A7-9759495DE242">
+        <File Id="F_Multi" Source="..\bin\poseavpn-multi.exe" KeyPath="yes" />
+      </Component>
+
+      <Component Id="C_Single" Directory="INSTALLFOLDER" Guid="AE675124-BB22-4876-8809-58D47F815243">
+        <File Id="F_Single" Source="..\bin\poseavpn-single.exe" KeyPath="yes" />
+      </Component>
+
+      <Component Id="C_Tray" Directory="INSTALLFOLDER" Guid="982C945B-A20B-4ED1-AE69-65CFDB2E51A4">
+        <File Id="F_Tray" Source="..\bin\poseavpn-tray.exe" KeyPath="yes" />
+      </Component>
+
+      <Component Id="C_Cli" Directory="INSTALLFOLDER" Guid="B46059F6-464A-4848-BE22-DF47F5386AE5">
+        <File Id="F_Cli" Source="..\bin\poseavpn.exe" KeyPath="yes" />
+        <Environment Id="EnvPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+      </Component>
+
+      <Component Id="C_Wintun" Directory="INSTALLFOLDER" Guid="CDFA757C-F648-4330-BFBE-FEAE6F0D09B6">
+        <File Id="F_Wintun" Source="..\bin\wintun.dll" KeyPath="yes" />
+      </Component>
+
+      <!-- Windows Servisi -->
+      <Component Id="C_Service" Directory="INSTALLFOLDER" Guid="418BE4B6-ECBA-4F58-9A74-12C85C5E77A7">
+        <File Id="F_Service" Source="..\bin\poseavpn-service.exe" KeyPath="yes" />
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Vital="yes"
+                        Name="PoseaVPN"
+                        DisplayName="PoseaVPN Service"
+                        Description="PoseaVPN WireGuard ve OpenVPN tünel yönetici servisi"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal" />
+        <ServiceControl Id="ServiceControl"
+                        Name="PoseaVPN"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- OpenVPN Destek Dosyaları -->
+      <Component Id="C_OpenVPN_Exe" Directory="OPENVPNFOLDER" Guid="DE36F523-2E19-4824-A152-44C16CFDF118">
+        <File Id="F_OvpnExe" Source="..\bin\openvpn\openvpn.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="C_OpenVPN_Crypto" Directory="OPENVPNFOLDER" Guid="9A25E832-613D-4A23-A4E2-23A4D62FB899">
+        <File Id="F_OvpnCrypto" Source="..\bin\openvpn\libcrypto-3-x64.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="C_OpenVPN_Ssl" Directory="OPENVPNFOLDER" Guid="6917E9A3-9F93-4B82-9DF2-87F95A134C10">
+        <File Id="F_OvpnSsl" Source="..\bin\openvpn\libssl-3-x64.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="C_OpenVPN_Pkcs" Directory="OPENVPNFOLDER" Guid="E6B231A9-DF31-41C2-BD22-491A9C86F621">
+        <File Id="F_OvpnPkcs" Source="..\bin\openvpn\libpkcs11-helper-1.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="C_OpenVPN_Vc" Directory="OPENVPNFOLDER" Guid="F962A5E7-6C3D-489A-98C3-53EA2B3C5232">
+        <File Id="F_OvpnVc" Source="..\bin\openvpn\vcruntime140.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="C_OpenVPN_Wintun" Directory="OPENVPNFOLDER" Guid="05E232F9-038B-4C94-BA5D-A02F3A290643">
+        <File Id="F_OvpnWintun" Source="..\bin\openvpn\wintun.dll" KeyPath="yes" />
+      </Component>
+
+      <!-- ProgramData Klasörleri ve İzinleri -->
+      <Component Id="C_ProgramData" Directory="CommonAppDataPoseaVPN" Guid="87E23E11-9A31-4F91-9E9A-58E3B6852A54">
+        <CreateFolder Directory="CommonAppDataPoseaVPN" />
+        <CreateFolder Directory="CommonAppDataLogs" />
+        <CreateFolder Directory="CommonAppDataProfiles" />
+      </Component>
+
+      <!-- Başlat Menüsü Kısayolu -->
+      <Component Id="C_Shortcut" Directory="ApplicationProgramsFolder" Guid="27BF56D1-7E05-46D3-A5B2-79F86D124B65">
+        <Shortcut Id="AppStartMenuShortcut"
+                  Name="PoseaVPN"
+                  Description="PoseaVPN İstemcisi"
+                  Target="[INSTALLFOLDER]poseavpn-multi.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Posea\PoseaVPN" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="MainFeature" Title="PoseaVPN" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Package>
+</Wix>

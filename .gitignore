@@ -1,0 +1,35 @@
+# Derleme çıktıları ve geçici dosyalar
+_backup/
+scratch/
+*.log
+*.tmp
+*.old
+*.msi
+*.wixpdb
+bin/*.exe
+!bin/openvpn/openvpn.exe
+build/
+cmd/**/build/
+
+# Geliştirme araçları ve IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Windows & OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Gerçek VPN yapılandırma ve kimlik dosyalarının kazara commit edilmesini önle
+*.conf
+*.ovpn
+*.key
+*.crt
+*.pem
+*.pfx
+*.p12
+
+# Yalnızca şablon örnek dosyaya izin ver
+!example.conf
