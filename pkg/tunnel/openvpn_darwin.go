@@ -20,16 +20,22 @@ func OpenVPNLogPath(name string) string {
 	return filepath.Join(baseDir, cleanAdapterName(name)+".log")
 }
 
-// FindOpenVPNBinary searches for the openvpn binary on macOS (bundled, Homebrew, MacPorts, PATH).
+// FindOpenVPNBinary searches for the openvpn binary on macOS (bundled in Helpers, MacOS, Resources, Homebrew, MacPorts, PATH).
 func FindOpenVPNBinary() (string, error) {
 	self, err := os.Executable()
 	if err == nil {
 		selfDir := filepath.Dir(self)
 		candidates := []string{
 			filepath.Join(selfDir, "openvpn"),
+			filepath.Join(selfDir, "openvpn", "openvpn"),
 			filepath.Join(selfDir, "bin", "openvpn"),
+			filepath.Join(selfDir, "bin", "openvpn", "openvpn"),
 			filepath.Join(selfDir, "..", "bin", "openvpn"),
 			filepath.Join(selfDir, "..", "MacOS", "openvpn"),
+			filepath.Join(selfDir, "..", "Helpers", "openvpn"),
+			filepath.Join(selfDir, "..", "Resources", "openvpn"),
+			"/Applications/PoseaVPN.app/Contents/Helpers/openvpn",
+			"/Applications/PoseaVPN.app/Contents/MacOS/openvpn",
 		}
 		for _, c := range candidates {
 			if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
@@ -38,12 +44,22 @@ func FindOpenVPNBinary() (string, error) {
 		}
 	}
 
-	// Homebrew (Apple Silicon & Intel) and standard unix paths
+	// Homebrew, MacPorts, Tunnelblick, and standard paths
+	home, _ := os.UserHomeDir()
 	commonPaths := []string{
+		"/Applications/PoseaVPN.app/Contents/Helpers/openvpn",
+		"/opt/homebrew/sbin/openvpn",
 		"/opt/homebrew/bin/openvpn",
+		filepath.Join(home, "homebrew", "sbin", "openvpn"),
+		filepath.Join(home, "homebrew", "bin", "openvpn"),
+		"/usr/local/sbin/openvpn",
 		"/usr/local/bin/openvpn",
+		"/opt/local/sbin/openvpn",
 		"/opt/local/bin/openvpn",
+		"/usr/sbin/openvpn",
 		"/usr/bin/openvpn",
+		"/Applications/Tunnelblick.app/Contents/Resources/openvpn/openvpn-2.5.4-openssl-1.1.1l/openvpn",
+		"/Applications/Tunnelblick.app/Contents/Resources/openvpn/openvpn-2.4.11-openssl-1.1.1l/openvpn",
 	}
 	for _, p := range commonPaths {
 		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {

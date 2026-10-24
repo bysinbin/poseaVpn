@@ -24,7 +24,30 @@ go build -tags production -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-single" ./cmd
 echo "[5/5] Building poseavpn-multi desktop app..."
 go build -tags production -ldflags "-s -w" -o "${BIN_DIR}/poseavpn-multi" ./cmd/poseavpn-multi
 
+# OpenVPN bundling (standalone binary)
+if [ ! -f "${BIN_DIR}/openvpn/openvpn" ] && [ ! -f "${BIN_DIR}/openvpn" ]; then
+    for candidate in \
+        "/Applications/Tunnelblick.app/Contents/Resources/openvpn/openvpn-2.5.4-openssl-1.1.1l/openvpn" \
+        "/Applications/Tunnelblick.app/Contents/Resources/openvpn/openvpn-2.4.11-openssl-1.1.1l/openvpn" \
+        "/opt/homebrew/sbin/openvpn" \
+        "/opt/homebrew/bin/openvpn" \
+        "${HOME}/homebrew/sbin/openvpn" \
+        "${HOME}/homebrew/bin/openvpn" \
+        "/usr/local/sbin/openvpn" \
+        "/usr/local/bin/openvpn"
+    do
+        if [ -f "$candidate" ]; then
+            echo "[*] Bundling OpenVPN binary from $candidate..."
+            mkdir -p "${BIN_DIR}/openvpn"
+            cp "$candidate" "${BIN_DIR}/openvpn/openvpn"
+            chmod +x "${BIN_DIR}/openvpn/openvpn"
+            break
+        fi
+    done
+fi
+
 chmod +x "${BIN_DIR}/poseavpn" "${BIN_DIR}/poseavpn-service" "${BIN_DIR}/poseavpn-tray" "${BIN_DIR}/poseavpn-single" "${BIN_DIR}/poseavpn-multi"
+[ -f "${BIN_DIR}/openvpn/openvpn" ] && chmod +x "${BIN_DIR}/openvpn/openvpn"
 
 echo "=== Derleme başarıyla tamamlandı! ==="
 echo "Çıktılar ${BIN_DIR} dizininde:"

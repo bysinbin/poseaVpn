@@ -38,6 +38,13 @@ cp "${BIN_DIR}/poseavpn-service" "${APP_DIR}/Contents/Helpers/"
 cp "${BIN_DIR}/poseavpn-tray" "${APP_DIR}/Contents/Helpers/"
 cp "${BIN_DIR}/poseavpn-single" "${APP_DIR}/Contents/Helpers/"
 cp "${BIN_DIR}/poseavpn" "${APP_DIR}/Contents/Helpers/"
+if [ -f "${BIN_DIR}/openvpn/openvpn" ]; then
+    cp "${BIN_DIR}/openvpn/openvpn" "${APP_DIR}/Contents/Helpers/openvpn"
+    echo "[*] Included OpenVPN binary in app bundle."
+elif [ -f "${BIN_DIR}/openvpn" ] && [ ! -d "${BIN_DIR}/openvpn" ]; then
+    cp "${BIN_DIR}/openvpn" "${APP_DIR}/Contents/Helpers/openvpn"
+    echo "[*] Included OpenVPN binary in app bundle."
+fi
 
 # Icons
 cp "${BUILD_DIR}/AppIcon.icns" "${APP_DIR}/Contents/Resources/AppIcon.icns"

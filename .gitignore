@@ -15,6 +15,7 @@ bin/poseavpn-service
 bin/poseavpn-tray
 bin/poseavpn-single
 bin/poseavpn-multi
+bin/openvpn/openvpn
 build/
 cmd/**/build/
 
