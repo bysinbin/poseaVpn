@@ -7,9 +7,9 @@ scratch/
 *.msi
 *.dmg
 *.wixpdb
-dist/
-bin/*.exe
+*.exe
 !bin/openvpn/openvpn.exe
+dist/
 bin/poseavpn
 bin/poseavpn-service
 bin/poseavpn-tray
@@ -17,7 +17,13 @@ bin/poseavpn-single
 bin/poseavpn-multi
 bin/openvpn/openvpn
 build/
+!build/appicon.png
+!build/windows/icon.ico
 cmd/**/build/
+!cmd/**/build/appicon.png
+!cmd/**/build/windows/icon.ico
+!cmd/**/build/windows/info.json
+!cmd/**/build/windows/wails.exe.manifest
 
 # Geliştirme araçları ve IDE
 .idea/

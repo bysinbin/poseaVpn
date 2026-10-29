@@ -48,6 +48,9 @@ Get-Process -Name poseavpn-tray -ErrorAction SilentlyContinue | Stop-Process -Fo
 go build -ldflags="-H windowsgui" -o bin/poseavpn-tray.exe ./cmd/poseavpn-tray
 if ($LASTEXITCODE -ne 0) { Write-Error "poseavpn-tray derleme hatasi"; exit 1 }
 
+# Simgeleri guncelle (Wails ve Windows ICO/PNG)
+go run installer/build_icon.go
+
 # 2) Masaustu uygulamalari (Wails): tekli ve coklu
 foreach ($app in 'single', 'multi') {
     $dir = "cmd/poseavpn-$app"

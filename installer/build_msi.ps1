@@ -16,7 +16,12 @@ wix build Package.wxs -arch x64 -o PoseaVPN-Setup-x64.msi
 if ($LASTEXITCODE -eq 0) {
     Write-Host "[OK] MSI basariyla olusturuldu: $PSScriptRoot\PoseaVPN-Setup-x64.msi"
     Copy-Item "PoseaVPN-Setup-x64.msi" "$root\bin\PoseaVPN-Setup-x64.msi" -Force -ErrorAction SilentlyContinue
-    Copy-Item "PoseaVPN-Setup-x64.msi" "c:\Users\Ulmo\OneDrive\Masaüstü\PoseaVPN-Setup-x64.msi" -Force -ErrorAction SilentlyContinue
+    
+    $desktop = [Environment]::GetFolderPath('Desktop')
+    if (Test-Path $desktop) {
+        Copy-Item "PoseaVPN-Setup-x64.msi" (Join-Path $desktop "PoseaVPN-Setup-x64.msi") -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] Masaustune kopyalandi: $desktop\PoseaVPN-Setup-x64.msi"
+    }
 } else {
     Write-Error "MSI olusturulamadi!"
 }
