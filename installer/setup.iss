@@ -1,6 +1,6 @@
 ; Inno Setup Script for PoseaVPN
 #define MyAppName "PoseaVPN"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "Posea"
 #define MyAppURL "https://github.com/bysinbin/poseaVpn"
 #define MyAppExeName "poseavpn-multi.exe"
