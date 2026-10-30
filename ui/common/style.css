@@ -169,16 +169,23 @@ input, textarea { font: inherit; color: inherit; user-select: text; }
 .modal-bg {
   position: fixed; inset: 0; background: rgba(4, 6, 14, .66); backdrop-filter: blur(4px);
   display: grid; place-items: center; z-index: 40; animation: fadeUp .2s ease both;
+  padding: 16px;
 }
 .modal {
-  width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 40px);
+  width: min(560px, calc(100vw - 32px)); max-height: min(680px, calc(100vh - 40px));
   background: #121830; border: 1px solid var(--line); border-radius: 18px;
-  padding: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 14px;
+  padding: 20px 22px 18px; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  display: flex; flex-direction: column; gap: 12px;
+  overflow: hidden; box-sizing: border-box;
 }
-.modal h2 { font-size: 17px; }
-.modal.wide { width: min(780px, calc(100vw - 40px)); }
-.textarea.tall { min-height: 320px; height: 42vh; }
-.validity { min-height: 18px; font-size: 12px; margin-top: 2px; }
+.modal.wide { width: min(780px, calc(100vw - 32px)); }
+.modal h2 { font-size: 17px; flex: none; }
+.mbody {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding-right: 4px; display: flex; flex-direction: column;
+}
+.textarea.tall { min-height: 180px; height: 230px; flex: 1; }
+.validity { min-height: 18px; font-size: 12px; margin-top: 3px; }
 .validity.ok { color: var(--ok); }
 .validity.bad { color: var(--bad); }
 .modal p { color: var(--muted); font-size: 13px; line-height: 1.5; }
@@ -190,8 +197,11 @@ input, textarea { font: inherit; color: inherit; user-select: text; }
   transition: border-color .2s;
 }
 .input:focus, .textarea:focus { border-color: rgba(109,124,255,.6); }
-.textarea { min-height: 190px; resize: vertical; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
-.modal .row { display: flex; gap: 10px; justify-content: flex-end; }
+.textarea { min-height: 160px; resize: vertical; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
+.modal .row {
+  display: flex; gap: 10px; justify-content: flex-end; align-items: center;
+  flex: none; padding-top: 4px;
+}
 
 .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
 .empty b { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
@@ -212,4 +222,3 @@ input, textarea { font: inherit; color: inherit; user-select: text; }
   user-select: text;
   margin: 10px 0 16px 0;
 }
-.modal.wide { width: 720px; max-width: 95vw; }
