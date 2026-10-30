@@ -9,8 +9,8 @@
 
   $('logo').innerHTML = icons.shield;
   $('createTunnelBtn').innerHTML = icons.plus + 'Yeni Tünel';
-  $('importBtn').innerHTML = icons.folder + 'İçe aktar';
-  $('exportAllBtn').innerHTML = icons.export + 'Dışa aktar';
+  $('importBtn').innerHTML = icons.folder;
+  $('exportAllBtn').innerHTML = icons.export;
   $('pasteBtn').innerHTML = icons.file;
 
   const tunnelNameOf = (t) => (t && (t.tunnel_name || t.tunnelName || ''));

@@ -28,7 +28,7 @@ const (
 	ModeMulti  = "multi"
 
 	serviceName = "PoseaVPN"
-	Version     = "1.1.0"
+	Version     = "1.3.0"
 )
 
 // ProfileInfo is a parsed summary of a .conf or .ovpn file (private keys are never exposed).

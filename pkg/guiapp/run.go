@@ -68,7 +68,7 @@ func Run(o RunOptions) error {
 			WebviewIsTransparent: false,
 			About: &mac.AboutInfo{
 				Title:   o.Title,
-				Message: "PoseaVPN v1.1.0 - Active Directory & Multi-Tunnel VPN Client",
+				Message: "PoseaVPN v1.3.0 - Active Directory & Multi-Tunnel VPN Client",
 			},
 		},
 	})

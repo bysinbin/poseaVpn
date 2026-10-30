@@ -9,11 +9,11 @@
   padding: 18px 16px 16px; border-right: 1px solid var(--line);
   background: rgba(8, 11, 22, .45);
 }
-.side-head { display: flex; align-items: center; gap: 6px; }
-.side-head b { font-size: 14px; }
-.side-head .btn { white-space: nowrap; flex: none; padding: 6px 10px; font-size: 11.5px; }
-.side-head #pasteBtn { padding: 6px 8px; }
-.side-head #pasteBtn svg { width: 14px; height: 14px; }
+.side-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.side-head b { font-size: 14px; white-space: nowrap; }
+.side-head .btn { white-space: nowrap; flex: none; padding: 6px 11px; font-size: 11.5px; }
+.side-head .btn.icon-only { padding: 6px 8px; }
+.side-head .btn.icon-only svg { width: 14px; height: 14px; }
 .count { font-size: 11px; color: var(--muted); background: var(--card); border: 1px solid var(--line); padding: 2px 7px; border-radius: 999px; }
 
 .list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
