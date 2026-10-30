@@ -1,5 +1,5 @@
 (function () {
-  const { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, serviceInfo, renderBanner, startPolling } = window.PWG;
+  const { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, serviceInfo, renderBanner, startPolling, openCreateTunnelModal } = window.PWG;
   const $ = (id) => document.getElementById(id);
 
   let state = null;       // last GetState()
@@ -8,6 +8,7 @@
   $('logo').innerHTML = icons.shield;
   $('powerIcon').innerHTML = icons.power;
   $('cfgIco').innerHTML = icons.file;
+  $('createTunnelBtn').innerHTML = icons.plus + 'Yeni Tünel';
   $('chooseBtn').innerHTML = icons.folder + 'Seç';
 
   const tunnelNameOf = (t) => (t && (t.tunnel_name || t.tunnelName || ''));
@@ -73,6 +74,7 @@
       $('cfgDetails').dataset.html = '';
       $('cfgDetails').innerHTML = '';
     }
+    $('createTunnelBtn').disabled = !!t || pending;
     $('chooseBtn').disabled = !!t || pending;
     const xb = $('exportBtn');
     if (xb) {
@@ -263,6 +265,7 @@
     }
   }
 
+  $('createTunnelBtn').onclick = () => openCreateTunnelModal(async (created) => { toast('Tünel hazır: ' + created.name, 'ok'); await refresh(); });
   $('chooseBtn').onclick = async () => {
     const p = await guard(() => api().ChooseConfig());
     if (p) { toast('Yapılandırma hatırlandı: ' + p.name, 'ok'); await refresh(); }

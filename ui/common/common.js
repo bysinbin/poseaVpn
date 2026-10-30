@@ -13,6 +13,9 @@
     down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
     up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
     export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M11.4 11.6L21 2M15.5 7.5L18 10M18.5 4.5L21 7"/></svg>',
   };
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -154,6 +157,155 @@
     };
   }
 
+  async function copyToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (api().SetClipboard) {
+        await api().SetClipboard(text);
+      }
+      toast('Açık anahtar panoya kopyalandı', 'ok');
+      return true;
+    } catch (e) {
+      try {
+        if (api().SetClipboard) {
+          await api().SetClipboard(text);
+          toast('Açık anahtar panoya kopyalandı', 'ok');
+          return true;
+        }
+      } catch (err) {}
+      toast('Kopyalanamadı: ' + errText(e), 'bad');
+      return false;
+    }
+  }
+
+  async function openCreateTunnelModal(onSuccess) {
+    let kp = { privateKey: '', publicKey: '' };
+    try {
+      kp = await api().GenerateKeyPair();
+    } catch (e) {
+      toast('Anahtar üretilemedi: ' + errText(e), 'bad');
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="field">
+        <label>Tünel adı</label>
+        <input class="input" id="ctName" placeholder="ör. ofis-vpn" value="" autocomplete="off" />
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Açık anahtar (Public Key) — <span style="color:var(--accent2);font-weight:500">Sunucu yöneticisine verilecek anahtar</span></span>
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+          <input class="input mono" id="ctPubKey" readonly style="flex:1;background:rgba(0,0,0,.35);cursor:text;color:var(--accent2);font-weight:600" value="${esc(kp.publicKey)}" />
+          <button class="btn sm" id="ctCopyBtn" type="button" title="Panoya kopyala">${icons.copy} Kopyala</button>
+          <button class="btn sm" id="ctRegenBtn" type="button" title="Yeni bir anahtar çifti üret">${icons.refresh} Yeni Anahtar</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <label>Yapılandırma (.conf içeriği)</label>
+        <textarea class="textarea tall" id="ctText" spellcheck="false"></textarea>
+        <div class="validity" id="ctValid"></div>
+      </div>
+    `;
+
+    const nameEl = wrap.querySelector('#ctName');
+    const pubEl = wrap.querySelector('#ctPubKey');
+    const textEl = wrap.querySelector('#ctText');
+    const validEl = wrap.querySelector('#ctValid');
+    const copyBtn = wrap.querySelector('#ctCopyBtn');
+    const regenBtn = wrap.querySelector('#ctRegenBtn');
+
+    const templateFor = (priv) => `[Interface]
+PrivateKey = ${priv}
+Address = 10.0.0.2/24
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = 
+AllowedIPs = 0.0.0.0/0
+Endpoint = 
+`;
+
+    textEl.value = templateFor(kp.privateKey);
+
+    copyBtn.onclick = () => copyToClipboard(pubEl.value);
+
+    regenBtn.onclick = async () => {
+      try {
+        const newKp = await api().GenerateKeyPair();
+        kp = newKp;
+        pubEl.value = newKp.publicKey;
+        pubEl.style.color = 'var(--accent2)';
+        const cur = textEl.value;
+        const re = /(PrivateKey\s*=\s*)[^\r\n]+/i;
+        if (re.test(cur)) {
+          textEl.value = cur.replace(re, `$1${newKp.privateKey}`);
+        } else {
+          textEl.value = templateFor(newKp.privateKey);
+        }
+        await check();
+        toast('Yeni anahtar çifti oluşturuldu', 'ok');
+      } catch (err) {
+        toast('Anahtar üretilemedi: ' + errText(err), 'bad');
+      }
+    };
+
+    let timer = null;
+    const check = async () => {
+      const val = textEl.value;
+      const m = val.match(/PrivateKey\s*=\s*([A-Za-z0-9+/=]{40,48})/i);
+      if (m && m[1]) {
+        try {
+          const derived = await api().PublicKeyFromPrivate(m[1].trim());
+          if (derived) {
+            pubEl.value = derived;
+            pubEl.style.color = 'var(--accent2)';
+          }
+        } catch (e) {
+          pubEl.value = '(özel anahtar geçersiz)';
+          pubEl.style.color = 'var(--bad)';
+        }
+      }
+
+      const msg = await api().ValidateConfig(val);
+      validEl.className = 'validity ' + (msg ? 'bad' : 'ok');
+      validEl.textContent = msg ? msg : 'Yapılandırma geçerli';
+    };
+
+    textEl.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(check, 250); });
+    setTimeout(() => { nameEl.focus(); check(); }, 50);
+
+    const ok = await modal({
+      title: 'Yeni WireGuard tüneli oluştur',
+      wide: true,
+      body: wrap,
+      actions: [
+        { label: 'Vazgeç', value: false },
+        { label: 'Tüneli Kaydet', cls: 'primary', value: true },
+      ],
+    });
+
+    if (!ok) return;
+
+    const name = nameEl.value.trim();
+    if (!name) {
+      toast('Lütfen bir tünel adı girin.', 'warn');
+      return;
+    }
+
+    const confText = textEl.value;
+    const created = await guard(() => api().CreateTunnel(name, confText), 'Tünel oluşturuldu: ' + name);
+    if (created && onSuccess) {
+      await onSuccess(created);
+    }
+  }
+
   function startPolling(cb, ms = 2000) {
     let busy = false;
     const tick = async () => {
@@ -166,5 +318,5 @@
     return setInterval(tick, ms);
   }
 
-  window.PWG = { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, errText, serviceInfo, renderBanner, startPolling };
+  window.PWG = { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, errText, serviceInfo, renderBanner, startPolling, copyToClipboard, openCreateTunnelModal };
 })();

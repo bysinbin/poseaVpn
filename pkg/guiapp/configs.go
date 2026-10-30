@@ -220,6 +220,58 @@ func (a *App) SaveProfileText(oldName, newName, text string) (string, error) {
 	return newName, nil
 }
 
+// GenerateKeyPair creates a new WireGuard private/public key pair.
+func (a *App) GenerateKeyPair() (config.KeyPair, error) {
+	return config.GenerateKeyPair()
+}
+
+// PublicKeyFromPrivate derives a WireGuard public key from a base64-encoded private key.
+func (a *App) PublicKeyFromPrivate(privKey string) (string, error) {
+	return config.PublicKeyFromPrivate(privKey)
+}
+
+// GeneratePresharedKey generates a 32-byte pre-shared key for WireGuard.
+func (a *App) GeneratePresharedKey() (string, error) {
+	return config.GeneratePresharedKey()
+}
+
+// SetClipboard copies the given text to the system clipboard.
+func (a *App) SetClipboard(text string) error {
+	if a.ctx != nil {
+		return runtime.ClipboardSetText(a.ctx, text)
+	}
+	return nil
+}
+
+// CreateTunnel creates a new WireGuard or OpenVPN profile from text, saves it,
+// and selects it immediately.
+func (a *App) CreateTunnel(name, text string) (ProfileInfo, error) {
+	savedName, err := a.saveProfile(cleanName(name), text)
+	if err != nil {
+		return ProfileInfo{}, err
+	}
+
+	path, err := profilePath(savedName)
+	if err != nil {
+		return ProfileInfo{}, err
+	}
+
+	if a.mode == ModeSingle {
+		s := loadSettings()
+		s.LastConfig = path
+		saveSettings(s)
+	}
+
+	active := map[string]bool{}
+	if list, err := a.client.List(); err == nil {
+		for _, t := range list {
+			active[strings.ToLower(t.TunnelName)] = true
+		}
+	}
+
+	return describe(path, active), nil
+}
+
 // ExportProfile lets the user choose a location and saves a single profile file.
 func (a *App) ExportProfile(name string) (string, error) {
 	src, err := profilePath(name)

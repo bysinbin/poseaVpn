@@ -1,3 +1,22 @@
+export namespace config {
+	
+	export class KeyPair {
+	    privateKey: string;
+	    publicKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new KeyPair(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.privateKey = source["privateKey"];
+	        this.publicKey = source["publicKey"];
+	    }
+	}
+
+}
+
 export namespace guiapp {
 	
 	export class Credential {

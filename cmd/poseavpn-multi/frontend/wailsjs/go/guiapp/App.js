@@ -18,6 +18,10 @@ export function ConnectProfileWithAuth(arg1, arg2, arg3, arg4) {
   return window['go']['guiapp']['App']['ConnectProfileWithAuth'](arg1, arg2, arg3, arg4);
 }
 
+export function CreateTunnel(arg1, arg2) {
+  return window['go']['guiapp']['App']['CreateTunnel'](arg1, arg2);
+}
+
 export function DeleteProfile(arg1) {
   return window['go']['guiapp']['App']['DeleteProfile'](arg1);
 }
@@ -32,6 +36,14 @@ export function ExportAllZip() {
 
 export function ExportProfile(arg1) {
   return window['go']['guiapp']['App']['ExportProfile'](arg1);
+}
+
+export function GenerateKeyPair() {
+  return window['go']['guiapp']['App']['GenerateKeyPair']();
+}
+
+export function GeneratePresharedKey() {
+  return window['go']['guiapp']['App']['GeneratePresharedKey']();
 }
 
 export function GetCredentials(arg1) {
@@ -56,6 +68,10 @@ export function ImportConfigs() {
 
 export function ImportText(arg1, arg2) {
   return window['go']['guiapp']['App']['ImportText'](arg1, arg2);
+}
+
+export function PublicKeyFromPrivate(arg1) {
+  return window['go']['guiapp']['App']['PublicKeyFromPrivate'](arg1);
 }
 
 export function SaveCredentials(arg1, arg2, arg3) {
@@ -84,6 +100,10 @@ export function ServiceStop() {
 
 export function ServiceUninstall() {
   return window['go']['guiapp']['App']['ServiceUninstall']();
+}
+
+export function SetClipboard(arg1) {
+  return window['go']['guiapp']['App']['SetClipboard'](arg1);
 }
 
 export function ValidateConfig(arg1) {

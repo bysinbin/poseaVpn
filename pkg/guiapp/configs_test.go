@@ -207,3 +207,47 @@ route 192.168.10.0 255.255.255.0
 	}
 }
 
+
+func TestKeyGenerationAndCreateTunnel(t *testing.T) {
+	isolate(t)
+	a := New(ModeMulti)
+
+	kp, err := a.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair failed: %v", err)
+	}
+	if len(kp.PrivateKey) != 44 || len(kp.PublicKey) != 44 {
+		t.Fatalf("unexpected key lengths: %+v", kp)
+	}
+
+	derivedPub, err := a.PublicKeyFromPrivate(kp.PrivateKey)
+	if err != nil {
+		t.Fatalf("PublicKeyFromPrivate failed: %v", err)
+	}
+	if derivedPub != kp.PublicKey {
+		t.Errorf("derived public key mismatch: %s != %s", derivedPub, kp.PublicKey)
+	}
+
+	conf := `[Interface]
+PrivateKey = ` + kp.PrivateKey + `
+Address = 10.0.0.5/24
+
+[Peer]
+PublicKey = ` + kp.PublicKey + `
+Endpoint = 198.51.100.1:51820
+AllowedIPs = 0.0.0.0/0
+`
+	prof, err := a.CreateTunnel("new-wireguard-tunnel", conf)
+	if err != nil {
+		t.Fatalf("CreateTunnel failed: %v", err)
+	}
+	if prof.Name != "new-wireguard-tunnel" {
+		t.Errorf("unexpected profile name: %s", prof.Name)
+	}
+	if prof.Proto != "wireguard" {
+		t.Errorf("unexpected proto: %s", prof.Proto)
+	}
+	if prof.Endpoint != "198.51.100.1:51820" {
+		t.Errorf("unexpected endpoint: %s", prof.Endpoint)
+	}
+}

@@ -1,5 +1,5 @@
 (function () {
-  const { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, serviceInfo, renderBanner, startPolling } = window.PWG;
+  const { api, icons, esc, fmtBytes, fmtAgo, fmtUptime, toast, guard, modal, confirmBox, serviceInfo, renderBanner, startPolling, copyToClipboard, openCreateTunnelModal } = window.PWG;
   const $ = (id) => document.getElementById(id);
 
   let state = null;
@@ -8,7 +8,8 @@
   let filter = '';
 
   $('logo').innerHTML = icons.shield;
-  $('importBtn').innerHTML = icons.plus + 'İçe aktar';
+  $('createTunnelBtn').innerHTML = icons.plus + 'Yeni Tünel';
+  $('importBtn').innerHTML = icons.folder + 'İçe aktar';
   $('exportAllBtn').innerHTML = icons.export + 'Dışa aktar';
   $('pasteBtn').innerHTML = icons.file;
 
@@ -406,18 +407,67 @@
       const wrap = document.createElement('div');
       wrap.innerHTML = `
         <div class="field"><label>Profil adı</label><input class="input" id="eName" spellcheck="false" /></div>
+        <div class="field" id="ePubField" style="margin-top:12px;display:none">
+          <label style="display:flex;justify-content:space-between;align-items:center">
+            <span>Açık anahtar (Public Key) — <span style="color:var(--accent2);font-weight:500">Sunucu yöneticisine verilecek</span></span>
+          </label>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+            <input class="input mono" id="ePubKey" readonly style="flex:1;background:rgba(0,0,0,.35);cursor:text;color:var(--accent2);font-weight:600" />
+            <button class="btn sm" id="eCopyPub" type="button">${icons.copy} Kopyala</button>
+            <button class="btn sm" id="eRegenPub" type="button" title="Yeni bir anahtar çifti üret">${icons.refresh} Yeni Anahtar</button>
+          </div>
+        </div>
         <div class="field" style="margin-top:12px"><label>Yapılandırma (.conf / .ovpn)</label>
           <textarea class="textarea tall" id="eText" spellcheck="false"></textarea>
           <div class="validity" id="eValid"></div></div>`;
       const nameEl = wrap.querySelector('#eName');
       const textEl = wrap.querySelector('#eText');
       const validEl = wrap.querySelector('#eValid');
+      const pubField = wrap.querySelector('#ePubField');
+      const pubEl = wrap.querySelector('#ePubKey');
+      const copyPubBtn = wrap.querySelector('#eCopyPub');
+      const regenPubBtn = wrap.querySelector('#eRegenPub');
       nameEl.value = newName;
       textEl.value = text;
 
+      copyPubBtn.onclick = () => copyToClipboard(pubEl.value);
+      regenPubBtn.onclick = async () => {
+        try {
+          const newKp = await api().GenerateKeyPair();
+          pubEl.value = newKp.publicKey;
+          pubEl.style.color = 'var(--accent2)';
+          const cur = textEl.value;
+          const re = /(PrivateKey\s*=\s*)[^\r\n]+/i;
+          if (re.test(cur)) {
+            textEl.value = cur.replace(re, `$1${newKp.privateKey}`);
+          }
+          await check();
+          toast('Yeni anahtar çifti oluşturuldu', 'ok');
+        } catch (err) {
+          toast('Anahtar üretilemedi: ' + errText(err), 'bad');
+        }
+      };
+
       let timer = null;
       const check = async () => {
-        const msg = await api().ValidateConfig(textEl.value);
+        const val = textEl.value;
+        const m = val.match(/PrivateKey\s*=\s*([A-Za-z0-9+/=]{40,48})/i);
+        if (m && m[1]) {
+          pubField.style.display = 'block';
+          try {
+            const derived = await api().PublicKeyFromPrivate(m[1].trim());
+            if (derived) {
+              pubEl.value = derived;
+              pubEl.style.color = 'var(--accent2)';
+            }
+          } catch (e) {
+            pubEl.value = '(özel anahtar geçersiz)';
+            pubEl.style.color = 'var(--bad)';
+          }
+        } else {
+          pubField.style.display = 'none';
+        }
+        const msg = await api().ValidateConfig(val);
         validEl.className = 'validity ' + (msg ? 'bad' : 'ok');
         validEl.textContent = msg ? msg : 'Yapılandırma geçerli';
       };
@@ -482,6 +532,7 @@
   }
 
   $('search').addEventListener('input', (e) => { filter = e.target.value; if (state) renderList(); });
+  $('createTunnelBtn').onclick = () => openCreateTunnelModal(async (created) => { if (created && created.name) selected = created.name; await refresh(); });
   $('importBtn').onclick = importFiles;
   $('exportAllBtn').onclick = exportAll;
   $('pasteBtn').onclick = pasteConfig;
